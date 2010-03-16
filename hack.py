@@ -69,13 +69,25 @@ def stack_top(frame):
 
 was_c_function_call = False
 def bytecode_trace(frame):
+    """Return description of an event with possible side-effects.
+
+    Currently supported events:
+     * ('c_call', function, arguments)
+       A call to a C function with given arguments is about to happen.
+     * ('c_return', None, return_value)
+       A C function returned with given value (it will always be the function
+       for the most recent 'c_call' event.
+     * ('print', None, None)
+       A print statement is about to be executed.
+    """
     global was_c_function_call
     bcode = current_bytecode(frame)
     if bcode == "CALL_FUNCTION" and is_c_func(stack_top(frame)):
-        print "BYTECODE", bcode, c_args(frame), stack_top(frame)
         was_c_function_call = True
+        return 'c_call', stack_top(frame), c_args(frame)
     elif was_c_function_call:
         was_c_function_call = False
-        print "BYTECODE", bcode, "function returned", repr(stack_top(frame))
+        return 'c_return', None, stack_top(frame)
     elif bcode.startswith("PRINT_"):
-        print "BYTECODE", bcode, stack_top(frame)
+        return 'print', None, None # TODO
+    return None, None, None
