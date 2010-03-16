@@ -5,7 +5,7 @@ from frame import get_value_stack
 
 def argscount(frame):
     code = frame.f_code.co_code[frame.f_lasti:]
-    if ord(code[0]) == opcode.opmap['CALL_FUNCTION']:
+    if opcode.opname[ord(code[0])].startswith("CALL_FUNCTION"):
         return ord(code[1]) # TODO: this is actually #args + (#kwargs<<8)
 
 def current_bytecode(frame):
@@ -33,6 +33,9 @@ def is_c_func(func):
 def stack_top(frame):
     return get_value_stack(frame)[0]
 
+def stack_second(frame):
+    return get_value_stack(frame)[1]
+
 was_c_function_call = False
 def bytecode_trace(frame):
     """Return description of an event with possible side-effects.
@@ -51,6 +54,9 @@ def bytecode_trace(frame):
     if bcode == "CALL_FUNCTION" and is_c_func(stack_top(frame)):
         was_c_function_call = True
         return 'c_call', stack_top(frame), c_args(frame)
+    elif bcode == "CALL_FUNCTION_VAR" and is_c_func(stack_top(frame)):
+        was_c_function_call = True
+        return 'c_call', stack_top(frame), stack_second(frame)
     elif was_c_function_call:
         was_c_function_call = False
         return 'c_return', None, stack_top(frame)

@@ -25,9 +25,11 @@ def fun(x):
     return x+1
 
 def doit():
+    x = [1, 10]
     fun(1) # Python function
     pow(2, 3) # C function
-    x = repr(4)
+    y = repr(4)
+    range(*x)
     print 5, 6
     print
 
