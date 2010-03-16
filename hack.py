@@ -1,41 +1,7 @@
-from ctypes import *
 import opcode
 
-ssize_t = c_long
-CO_MAXBLOCKS = 20
+from frame import get_value_stack
 
-class PyTryBlock(Structure):
-    _fields_ = [("b_type", c_int),
-                ("b_handler", c_int),
-                ("b_level", c_int)]
-
-class Frame(Structure):
-    _fields_ = [("ob_refcnt", ssize_t),
-                ("ob_type", py_object),
-                ("ob_size", ssize_t),
-                ("f_back", py_object),
-                ("f_code", py_object),
-                ("f_builtins", py_object),
-                ("f_globals", py_object),
-                ("f_locals", py_object),
-                ("f_valuestack", POINTER(py_object)),
-                ("f_stacktop", POINTER(py_object)),
-                ("f_trace", py_object),
-                ("f_exc_type", py_object),
-                ("f_exc_value", py_object),
-                ("f_exc_traceback", py_object),
-                ("f_tstate", py_object),
-                ("f_lasti", c_int),
-                ("f_lineno", c_int),
-                ("f_iblock", c_int),
-                ("f_blockstack", PyTryBlock * CO_MAXBLOCKS),
-                ("f_localsplus", py_object * 10)]
-
-def frame_internals(frame):
-    return cast(id(frame), POINTER(Frame)).contents
-
-def value_stack(frame):
-    return frame_internals(frame).f_valuestack
 
 def argscount(frame):
     code = frame.f_code.co_code[frame.f_lasti:]
@@ -47,7 +13,7 @@ def current_bytecode(frame):
     return opcode.opname[ord(code)]
 
 def c_args(frame):
-    return value_stack(frame)[1:1+argscount(frame)]
+    return get_value_stack(frame)[1:1+argscount(frame)]
 
 def is_c_func(func):
     """Return True if given function object was implemented in C,
@@ -65,7 +31,7 @@ def is_c_func(func):
     return not hasattr(func, 'func_code')
 
 def stack_top(frame):
-    return value_stack(frame)[0]
+    return get_value_stack(frame)[0]
 
 was_c_function_call = False
 def bytecode_trace(frame):
