@@ -60,6 +60,7 @@ def is_c_func(func):
     True
     >>> import doctest
     >>> is_c_func(doctest.testmod)
+    False
     """
     return not hasattr(func, 'func_code')
 
