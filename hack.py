@@ -73,10 +73,10 @@ def bytecode_trace(frame):
         return 'c_call', stack_top(frame), c_positional_args(frame), c_keyword_args(frame)
     elif bcode == "CALL_FUNCTION_VAR" and is_c_func(stack_top(frame)):
         was_c_function_call = True
-        return 'c_call', stack_top(frame), stack_second(frame), None
+        return 'c_call', stack_top(frame), stack_second(frame), {}
     elif bcode == "CALL_FUNCTION_KW" and is_c_func(stack_top(frame)):
         was_c_function_call = True
-        return 'c_call', stack_top(frame), None, stack_second(frame)
+        return 'c_call', stack_top(frame), [], stack_second(frame)
     elif was_c_function_call:
         was_c_function_call = False
         return 'c_return', None, stack_top(frame), None

@@ -1,18 +1,19 @@
 import dis
 import sys
 
+from nose import SkipTest
 from nose.tools import assert_equal
 
 from hack import bytecode_trace
 from hackpyc import hack_line_numbers
 
 
+return_value = None
 class TestBytecodeTrace:
     def setup(self):
         self._traces = []
 
     def _trace(self, frame, event, arg):
-        print event, arg
         if event == 'line' and arg is not sys.settrace:
             ret = bytecode_trace(frame)
             if ret[0] is not None:
@@ -32,8 +33,38 @@ class TestBytecodeTrace:
     def test_traces_builtin_functions_with_single_argument(self):
         def fun():
             repr(4)
-
         self.trace_function(fun)
-
         self.assert_trace(('c_call', repr, [4], {}),
                           ('c_return', None, "4", None))
+
+    def test_traces_builtin_functions_with_two_arguments(self):
+        def fun():
+            pow(2, 3)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', pow, [2, 3], {}),
+                          ('c_return', None, 8, None))
+
+    def test_traces_builtin_functions_with_keyword_argument(self):
+        def fun():
+            global return_value
+            return_value = property(doc="asdf")
+        self.trace_function(fun)
+        self.assert_trace(('c_call', property, [], {'doc': "asdf"}),
+                          ('c_return', None, return_value, None))
+
+    def test_traces_builtin_functions_with_varargs(self):
+        def fun():
+            x = [1, 10]
+            range(*x)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', range, [1, 10], {}),
+                          ('c_return', None, [1, 2, 3, 4, 5, 6, 7, 8, 9], None))
+
+    def test_traces_builtin_functions_with_kwargs(self):
+        def fun():
+            global return_value
+            z = {'source': '1', 'filename': '', 'mode': 'eval'}
+            return_value = compile(**z)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', compile, [], {'source': '1', 'filename': '', 'mode': 'eval'}),
+                          ('c_return', None, return_value, None))
