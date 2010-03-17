@@ -31,6 +31,8 @@ def doit():
     y = repr(4)
     range(*x)
     property(doc="asdf")
+    z = {'source': '1', 'filename': '', 'mode': 'eval'}
+    compile(**z)
     print 5, 6
     print
 
