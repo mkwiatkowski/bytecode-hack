@@ -30,6 +30,13 @@ class TestBytecodeTrace:
         fun()
         sys.settrace(None)
 
+    def test_traces_builtin_functions_with_no_arguments(self):
+        def fun():
+            list()
+        self.trace_function(fun)
+        self.assert_trace(('c_call', list, [], {}),
+                          ('c_return', None, [], None))
+
     def test_traces_builtin_functions_with_single_argument(self):
         def fun():
             repr(4)
