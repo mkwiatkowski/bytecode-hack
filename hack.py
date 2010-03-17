@@ -3,6 +3,9 @@ import opcode
 from frame import get_value_stack
 
 
+def flatlist_to_dict(alist):
+    return dict(zip(alist[::2], alist[1::2]))
+
 def CALL_FUNCTION_arg(frame):
     code = frame.f_code.co_code[frame.f_lasti:]
     if opcode.opname[ord(code[0])].startswith("CALL_FUNCTION"):
@@ -27,7 +30,7 @@ def c_positional_args(frame):
 
 def c_keyword_args(frame):
     args = get_value_stack(frame)[1:1+2*keyword_args_count(frame)]
-    return dict(partition(args, 2)) # TODO
+    return flatlist_to_dict(args)
 
 def is_c_func(func):
     """Return True if given function object was implemented in C,
