@@ -53,6 +53,9 @@ def stack_top(frame):
 def stack_second(frame):
     return get_value_stack(frame)[1]
 
+def stack_third(frame):
+    return get_value_stack(frame)[2]
+
 was_c_function_call = False
 def bytecode_trace(frame):
     """Return description of an event with possible side-effects.
@@ -77,6 +80,9 @@ def bytecode_trace(frame):
     elif bcode == "CALL_FUNCTION_KW" and is_c_func(stack_top(frame)):
         was_c_function_call = True
         return 'c_call', stack_top(frame), [], stack_second(frame)
+    elif bcode == "CALL_FUNCTION_VAR_KW" and is_c_func(stack_top(frame)):
+        was_c_function_call = True
+        return 'c_call', stack_top(frame), list(stack_second(frame)), stack_third(frame)
     elif was_c_function_call:
         was_c_function_call = False
         return 'c_return', None, stack_top(frame), None
