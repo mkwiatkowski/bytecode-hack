@@ -28,9 +28,26 @@ def current_bytecode(frame):
 def c_positional_args(frame):
     return get_value_stack(frame)[1:1+positional_args_count(frame)]
 
-def c_keyword_args(frame):
+def keyword_args_from_double_star(frame):
+    """Dictionary passed as "**kwds".
+    """
+    return stack_above_args(frame)
+
+def keyword_args_from_stack(frame):
+    """Key/value pairs placed explicitly on stack as keyword arguments.
+    """
     args = get_value_stack(frame)[1:1+2*keyword_args_count(frame)]
     return flatlist_to_dict(args)
+
+def keyword_args(frame, doublestar=False):
+    """Dictionary of all keyword arguments passed to a C function.
+    """
+    if doublestar:
+        kwds = keyword_args_from_double_star(frame).copy()
+    else:
+        kwds = {}
+    kwds.update(keyword_args_from_stack(frame))
+    return kwds
 
 def args_count(frame):
     return positional_args_count(frame) + 2*keyword_args_count(frame)
@@ -80,15 +97,13 @@ def bytecode_trace(frame):
     bcode = current_bytecode(frame)
     if bcode == "CALL_FUNCTION" and is_c_func(stack_top(frame)):
         was_c_function_call = True
-        return 'c_call', stack_top(frame), c_positional_args(frame), c_keyword_args(frame)
+        return 'c_call', stack_top(frame), c_positional_args(frame), keyword_args(frame)
     elif bcode == "CALL_FUNCTION_VAR" and is_c_func(stack_top(frame)):
         was_c_function_call = True
         return 'c_call', stack_top(frame), stack_second(frame), {}
     elif bcode == "CALL_FUNCTION_KW" and is_c_func(stack_top(frame)):
         was_c_function_call = True
-        kwds = stack_above_args(frame).copy()
-        kwds.update(c_keyword_args(frame))
-        return 'c_call', stack_top(frame), [], kwds
+        return 'c_call', stack_top(frame), [], keyword_args(frame, doublestar=True)
     elif bcode == "CALL_FUNCTION_VAR_KW" and is_c_func(stack_top(frame)):
         was_c_function_call = True
         return 'c_call', stack_top(frame), list(stack_second(frame)), stack_third(frame)
