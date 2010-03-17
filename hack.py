@@ -32,6 +32,9 @@ def c_keyword_args(frame):
     args = get_value_stack(frame)[1:1+2*keyword_args_count(frame)]
     return flatlist_to_dict(args)
 
+def args_count(frame):
+    return positional_args_count(frame) + 2*keyword_args_count(frame)
+
 def is_c_func(func):
     """Return True if given function object was implemented in C,
     via a C extension or as a builtin.
@@ -46,6 +49,10 @@ def is_c_func(func):
     False
     """
     return not hasattr(func, 'func_code')
+
+def stack_above_args(frame):
+    i = args_count(frame) + 1
+    return get_value_stack(frame)[i]
 
 def stack_top(frame):
     return get_value_stack(frame)[0]
@@ -79,7 +86,9 @@ def bytecode_trace(frame):
         return 'c_call', stack_top(frame), stack_second(frame), {}
     elif bcode == "CALL_FUNCTION_KW" and is_c_func(stack_top(frame)):
         was_c_function_call = True
-        return 'c_call', stack_top(frame), [], stack_second(frame)
+        kwds = stack_above_args(frame).copy()
+        kwds.update(c_keyword_args(frame))
+        return 'c_call', stack_top(frame), [], kwds
     elif bcode == "CALL_FUNCTION_VAR_KW" and is_c_func(stack_top(frame)):
         was_c_function_call = True
         return 'c_call', stack_top(frame), list(stack_second(frame)), stack_third(frame)
