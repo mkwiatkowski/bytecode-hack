@@ -104,3 +104,13 @@ class TestBytecodeTrace:
         self.assert_trace(('c_call', compile, ["1", "", 'eval'], {'flags': 0}),
                           ('c_return', None, return_value, None))
 
+    def test_traces_builtin_functions_with_keyword_varargs_and_kwargs(self):
+        def fun():
+            global return_value
+            a = ("1", "", 'eval')
+            k = {'flags': 0}
+            return_value = compile(dont_inherit=0, *a, **k)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', compile, ["1", "", 'eval'], {'flags': 0, 'dont_inherit': 0}),
+                          ('c_return', None, return_value, None))
+

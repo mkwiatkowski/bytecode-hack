@@ -45,10 +45,13 @@ def positional_args(frame, varargs=False):
     args.extend(positional_args_from_stack(frame))
     return args
 
-def keyword_args_from_double_star(frame):
+def keyword_args_from_double_star(frame, skip_one=False):
     """Dictionary passed as "**kwds".
     """
-    return stack_above_args(frame)
+    if skip_one:
+        return stack_above_args(frame, offset=1)
+    else:
+        return stack_above_args(frame)
 
 def keyword_args_from_stack(frame):
     """Key/value pairs placed explicitly on stack as keyword arguments.
@@ -56,11 +59,11 @@ def keyword_args_from_stack(frame):
     args = get_value_stack(frame)[1:1+2*keyword_args_count(frame)]
     return flatlist_to_dict(args)
 
-def keyword_args(frame, doublestar=False):
+def keyword_args(frame, varargs=False, doublestar=False):
     """Dictionary of all keyword arguments passed to a C function.
     """
     if doublestar:
-        kwds = keyword_args_from_double_star(frame).copy()
+        kwds = keyword_args_from_double_star(frame, skip_one=varargs).copy()
     else:
         kwds = {}
     kwds.update(keyword_args_from_stack(frame))
@@ -84,11 +87,11 @@ def is_c_func(func):
     """
     return not hasattr(func, 'func_code')
 
-def stack_above_args(frame):
+def stack_above_args(frame, offset=0):
     """For functions with *varargs and **kwargs will contain a tuple and/or
     a dictionary. It is an error to access it for other functions.
     """
-    i = args_count(frame) + 1
+    i = 1 + args_count(frame) + offset
     return get_value_stack(frame)[i]
 
 def stack_top(frame):
@@ -126,7 +129,8 @@ def bytecode_trace(frame):
         return 'c_call', stack_top(frame), [], keyword_args(frame, doublestar=True)
     elif bcode == "CALL_FUNCTION_VAR_KW" and is_c_func(stack_top(frame)):
         was_c_function_call = True
-        return 'c_call', stack_top(frame), list(stack_second(frame)), stack_third(frame)
+        return 'c_call', stack_top(frame), positional_args(frame, varargs=True),\
+            keyword_args(frame, varargs=True, doublestar=True)
     elif was_c_function_call:
         was_c_function_call = False
         return 'c_return', None, stack_top(frame), None
