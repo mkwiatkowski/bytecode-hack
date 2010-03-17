@@ -25,8 +25,25 @@ def current_bytecode(frame):
     code = frame.f_code.co_code[frame.f_lasti]
     return opcode.opname[ord(code)]
 
-def c_positional_args(frame):
+def positional_args_from_stack(frame):
+    """Objects explicitly placed on stack as positional arguments.
+    """
     return get_value_stack(frame)[1:1+positional_args_count(frame)]
+
+def positional_args_from_varargs(frame):
+    """Iterable placed on stack as "*args".
+    """
+    return stack_above_args(frame)
+
+def positional_args(frame, varargs=False):
+    """List of all positional arguments passed to a C function.
+    """
+    if varargs:
+        args = list(positional_args_from_varargs(frame))
+    else:
+        args = []
+    args.extend(positional_args_from_stack(frame))
+    return args
 
 def keyword_args_from_double_star(frame):
     """Dictionary passed as "**kwds".
@@ -68,6 +85,9 @@ def is_c_func(func):
     return not hasattr(func, 'func_code')
 
 def stack_above_args(frame):
+    """For functions with *varargs and **kwargs will contain a tuple and/or
+    a dictionary. It is an error to access it for other functions.
+    """
     i = args_count(frame) + 1
     return get_value_stack(frame)[i]
 
@@ -97,10 +117,10 @@ def bytecode_trace(frame):
     bcode = current_bytecode(frame)
     if bcode == "CALL_FUNCTION" and is_c_func(stack_top(frame)):
         was_c_function_call = True
-        return 'c_call', stack_top(frame), c_positional_args(frame), keyword_args(frame)
+        return 'c_call', stack_top(frame), positional_args(frame), keyword_args(frame)
     elif bcode == "CALL_FUNCTION_VAR" and is_c_func(stack_top(frame)):
         was_c_function_call = True
-        return 'c_call', stack_top(frame), stack_second(frame), {}
+        return 'c_call', stack_top(frame), positional_args(frame, varargs=True), keyword_args(frame)
     elif bcode == "CALL_FUNCTION_KW" and is_c_func(stack_top(frame)):
         was_c_function_call = True
         return 'c_call', stack_top(frame), [], keyword_args(frame, doublestar=True)
