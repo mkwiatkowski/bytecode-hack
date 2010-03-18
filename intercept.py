@@ -2,13 +2,13 @@ import dis
 import inspect
 import sys
 
-from hack import bytecode_trace
-from hackpyc import hack_line_numbers
+from bytecode_tracer import trace as btrace
+from bytecode_tracer import rewrite_lnotab
 
 
 def trace(frame, event, arg):
     try:
-        ev, rest = bytecode_trace(frame, event)
+        ev, rest = btrace(frame, event)
         if ev == 'c_call':
             func, pargs, kargs = rest
             print "C_CALL", func.__name__, repr(pargs), repr(kargs)
@@ -48,8 +48,8 @@ def doit():
 
 print dis.dis(doit)
 
-fun.func_code = hack_line_numbers(fun.func_code)
-doit.func_code = hack_line_numbers(doit.func_code)
+fun.func_code = rewrite_lnotab(fun.func_code)
+doit.func_code = rewrite_lnotab(doit.func_code)
 
 sys.settrace(trace)
 try:
