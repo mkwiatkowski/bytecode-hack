@@ -30,6 +30,7 @@ class TestBytecodeTrace:
         fun()
         sys.settrace(None)
 
+class TestBytecodeTraceWithDifferentArgumentsCombinations(TestBytecodeTrace):
     def test_traces_builtin_functions_with_no_arguments(self):
         def fun():
             list()
@@ -177,3 +178,11 @@ class TestBytecodeTrace:
         self.trace_function(fun)
         self.assert_trace(('c_call', (compile, ["1", "", 'eval'], {'flags': 0, 'dont_inherit': 0})),
                           ('c_return', return_value))
+
+class TestBytecodeTraceReturnValues(TestBytecodeTrace):
+    def test_traces_builtin_functions_returning_multiple_values(self):
+        def fun():
+            coerce(1, 1.25)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', (coerce, [1, 1.25], {})),
+                          ('c_return', (1.0, 1.25)))
