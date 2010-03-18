@@ -6,6 +6,10 @@ from frame import get_value_stack
 def flatlist_to_dict(alist):
     return dict(zip(alist[::2], alist[1::2]))
 
+def current_bytecode(frame):
+    code = frame.f_code.co_code[frame.f_lasti]
+    return opcode.opname[ord(code)]
+
 def CALL_FUNCTION_args_counts(frame):
     """Number of arguments placed on stack is encoded as two bytes after
     the CALL_FUNCTION bytecode.
@@ -19,10 +23,6 @@ def positional_args_count(frame):
 
 def keyword_args_count(frame):
     return CALL_FUNCTION_args_counts(frame)[1]
-
-def current_bytecode(frame):
-    code = frame.f_code.co_code[frame.f_lasti]
-    return opcode.opname[ord(code)]
 
 def positional_args_from_stack(frame):
     """Objects explicitly placed on stack as positional arguments.
@@ -42,6 +42,13 @@ def positional_args(frame, varargs=False):
         args.extend(positional_args_from_varargs(frame))
     return args
 
+def keyword_args_from_stack(frame):
+    """Key/value pairs placed explicitly on stack as keyword arguments.
+    """
+    keywords_start = 1 + positional_args_count(frame)
+    args = get_value_stack(frame)[keywords_start:keywords_start+2*keyword_args_count(frame)]
+    return flatlist_to_dict(args)
+
 def keyword_args_from_double_star(frame, skip_one=False):
     """Dictionary passed as "**kwds".
     """
@@ -49,13 +56,6 @@ def keyword_args_from_double_star(frame, skip_one=False):
         return stack_above_args(frame, offset=1)
     else:
         return stack_above_args(frame)
-
-def keyword_args_from_stack(frame):
-    """Key/value pairs placed explicitly on stack as keyword arguments.
-    """
-    keywords_start = 1 + positional_args_count(frame)
-    args = get_value_stack(frame)[keywords_start:keywords_start+2*keyword_args_count(frame)]
-    return flatlist_to_dict(args)
 
 def keyword_args(frame, varargs=False, doublestar=False):
     """Dictionary of all keyword arguments passed to a C function.
@@ -92,14 +92,13 @@ def stack_above_args(frame, offset=0):
     i = 1 + args_count(frame) + offset
     return get_value_stack(frame)[i]
 
-def stack_top(frame):
+def stack_bottom(frame):
+    """The first object at the value stack.
+
+    It's the function being called for CALL_FUNCTION_* bytecodes and a return
+    value right after the function returns.
+    """
     return get_value_stack(frame)[0]
-
-def stack_second(frame):
-    return get_value_stack(frame)[1]
-
-def stack_third(frame):
-    return get_value_stack(frame)[2]
 
 was_c_function_call = False
 def bytecode_trace(frame):
@@ -119,7 +118,7 @@ def bytecode_trace(frame):
     global was_c_function_call
     bcode = current_bytecode(frame)
     if bcode.startswith("CALL_FUNCTION"):
-        function = stack_top(frame)
+        function = stack_bottom(frame)
         if not is_c_func(function):
             return
         was_c_function_call = True
@@ -135,6 +134,6 @@ def bytecode_trace(frame):
                           keyword_args(frame, varargs=varargs, doublestar=doublestar))
     elif was_c_function_call:
         was_c_function_call = False
-        return 'c_return', stack_top(frame)
+        return 'c_return', stack_bottom(frame)
     elif bcode.startswith("PRINT_"):
         return 'print', None # TODO
