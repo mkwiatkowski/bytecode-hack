@@ -14,10 +14,13 @@ class TestBytecodeTrace:
         self._traces = []
 
     def _trace(self, frame, event, arg):
-        if event == 'line' and arg is not sys.settrace:
-            ret = bytecode_trace(frame)
-            if ret is not None and ret[0] is not None:
-                self._traces.append(ret)
+        try:
+            if arg is not sys.settrace:
+                ret = bytecode_trace(frame, event)
+                if ret is not None and ret[0] is not None:
+                    self._traces.append(ret)
+        except TypeError:
+            pass
         return self._trace
 
     def assert_trace(self, *traces):
@@ -27,8 +30,10 @@ class TestBytecodeTrace:
         dis.dis(fun.func_code)
         fun.func_code = hack_line_numbers(fun.func_code)
         sys.settrace(self._trace)
-        fun()
-        sys.settrace(None)
+        try:
+            fun()
+        finally:
+            sys.settrace(None)
 
 class TestBytecodeTraceWithDifferentArgumentsCombinations(TestBytecodeTrace):
     def test_traces_builtin_functions_with_no_arguments(self):
@@ -186,3 +191,16 @@ class TestBytecodeTraceReturnValues(TestBytecodeTrace):
         self.trace_function(fun)
         self.assert_trace(('c_call', (coerce, [1, 1.25], {})),
                           ('c_return', (1.0, 1.25)))
+
+class TestBytecodeTraceWithExceptions(TestBytecodeTrace):
+    def test_keeps_tracing_properly_after_an_exception(self):
+        def fun():
+            try:
+                chr(256)
+            except ValueError:
+                pass
+            chr(90)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', (chr, [256], {})),
+                          ('c_call', (chr, [90], {})),
+                          ('c_return', 'Z'))

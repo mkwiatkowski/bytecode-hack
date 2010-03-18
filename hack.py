@@ -101,8 +101,9 @@ def stack_bottom(frame):
     return get_value_stack(frame)[0]
 
 was_c_function_call = False
-def bytecode_trace(frame):
-    """Return description of an event with possible side-effects.
+def bytecode_trace(frame, event):
+    """Tries to recognize the current event in terms of calls to and returns
+    from C.
 
     Currently supported events:
      * ('c_call', (function, positional_arguments, keyword_arguments))
@@ -116,24 +117,28 @@ def bytecode_trace(frame):
     In other cases, None is returned.
     """
     global was_c_function_call
-    bcode = current_bytecode(frame)
-    if bcode.startswith("CALL_FUNCTION"):
-        function = stack_bottom(frame)
-        if not is_c_func(function):
-            return
-        was_c_function_call = True
-        varargs, doublestar = False, False
-        if bcode == "CALL_FUNCTION_VAR":
-            varargs = True
-        elif bcode == "CALL_FUNCTION_KW":
-            doublestar = True
-        elif bcode == "CALL_FUNCTION_VAR_KW":
-            varargs, doublestar = True, True
-        return 'c_call', (function,
-                          positional_args(frame, varargs=varargs),
-                          keyword_args(frame, varargs=varargs, doublestar=doublestar))
-    elif was_c_function_call:
+    if event == 'line':
+        bcode = current_bytecode(frame)
+        if bcode.startswith("CALL_FUNCTION"):
+            function = stack_bottom(frame)
+            if not is_c_func(function):
+                return
+            was_c_function_call = True
+            varargs, doublestar = False, False
+            if bcode == "CALL_FUNCTION_VAR":
+                varargs = True
+            elif bcode == "CALL_FUNCTION_KW":
+                doublestar = True
+            elif bcode == "CALL_FUNCTION_VAR_KW":
+                varargs, doublestar = True, True
+            return 'c_call', (function,
+                              positional_args(frame, varargs=varargs),
+                              keyword_args(frame, varargs=varargs, doublestar=doublestar))
+        elif was_c_function_call:
+            was_c_function_call = False
+            return 'c_return', stack_bottom(frame)
+        elif bcode.startswith("PRINT_"):
+            return 'print', None # TODO
+    elif event == 'exception' and was_c_function_call:
         was_c_function_call = False
-        return 'c_return', stack_bottom(frame)
-    elif bcode.startswith("PRINT_"):
-        return 'print', None # TODO
+        return None
