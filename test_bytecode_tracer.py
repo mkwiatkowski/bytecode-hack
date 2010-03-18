@@ -4,19 +4,19 @@ import sys
 from nose import SkipTest
 from nose.tools import assert_equal
 
-from hack import bytecode_trace
+from bytecode_tracer import trace
 from hackpyc import hack_line_numbers
 
 
 return_value = None
-class TestBytecodeTrace:
+class TestBytecodeTracer:
     def setup(self):
         self._traces = []
 
     def _trace(self, frame, event, arg):
         try:
             if arg is not sys.settrace:
-                ret = bytecode_trace(frame, event)
+                ret = trace(frame, event)
                 if ret is not None and ret[0] is not None:
                     self._traces.append(ret)
         except TypeError:
@@ -35,7 +35,7 @@ class TestBytecodeTrace:
         finally:
             sys.settrace(None)
 
-class TestBytecodeTraceWithDifferentArgumentsCombinations(TestBytecodeTrace):
+class TestBytecodeTracerWithDifferentArgumentsCombinations(TestBytecodeTracer):
     def test_traces_builtin_functions_with_no_arguments(self):
         def fun():
             list()
@@ -184,7 +184,7 @@ class TestBytecodeTraceWithDifferentArgumentsCombinations(TestBytecodeTrace):
         self.assert_trace(('c_call', (compile, ["1", "", 'eval'], {'flags': 0, 'dont_inherit': 0})),
                           ('c_return', return_value))
 
-class TestBytecodeTraceReturnValues(TestBytecodeTrace):
+class TestBytecodeTracerReturnValues(TestBytecodeTracer):
     def test_traces_builtin_functions_returning_multiple_values(self):
         def fun():
             coerce(1, 1.25)
@@ -192,7 +192,7 @@ class TestBytecodeTraceReturnValues(TestBytecodeTrace):
         self.assert_trace(('c_call', (coerce, [1, 1.25], {})),
                           ('c_return', (1.0, 1.25)))
 
-class TestBytecodeTraceWithExceptions(TestBytecodeTrace):
+class TestBytecodeTracerWithExceptions(TestBytecodeTracer):
     def test_keeps_tracing_properly_after_an_exception(self):
         def fun():
             try:
