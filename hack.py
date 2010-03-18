@@ -123,22 +123,16 @@ def bytecode_trace(frame):
         if not is_c_func(function):
             return
         was_c_function_call = True
-        if bcode == "CALL_FUNCTION":
-            return 'c_call', (function,
-                              positional_args(frame),
-                              keyword_args(frame))
-        elif bcode == "CALL_FUNCTION_VAR":
-            return 'c_call', (function,
-                              positional_args(frame, varargs=True),
-                              keyword_args(frame))
+        varargs, doublestar = False, False
+        if bcode == "CALL_FUNCTION_VAR":
+            varargs = True
         elif bcode == "CALL_FUNCTION_KW":
-            return 'c_call', (function,
-                              positional_args(frame),
-                              keyword_args(frame, doublestar=True))
+            doublestar = True
         elif bcode == "CALL_FUNCTION_VAR_KW":
-            return 'c_call', (function,
-                              positional_args(frame, varargs=True),
-                              keyword_args(frame, varargs=True, doublestar=True))
+            varargs, doublestar = True, True
+        return 'c_call', (function,
+                          positional_args(frame, varargs=varargs),
+                          keyword_args(frame, varargs=varargs, doublestar=doublestar))
     elif was_c_function_call:
         was_c_function_call = False
         return 'c_return', stack_top(frame)
