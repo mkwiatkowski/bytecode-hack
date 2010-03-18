@@ -125,7 +125,7 @@ def bytecode_trace(frame):
         return 'c_call', stack_top(frame), positional_args(frame, varargs=True), keyword_args(frame)
     elif bcode == "CALL_FUNCTION_KW" and is_c_func(stack_top(frame)):
         was_c_function_call = True
-        return 'c_call', stack_top(frame), [], keyword_args(frame, doublestar=True)
+        return 'c_call', stack_top(frame), positional_args(frame), keyword_args(frame, doublestar=True)
     elif bcode == "CALL_FUNCTION_VAR_KW" and is_c_func(stack_top(frame)):
         was_c_function_call = True
         return 'c_call', stack_top(frame), positional_args(frame, varargs=True),\
