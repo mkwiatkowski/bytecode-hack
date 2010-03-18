@@ -38,8 +38,8 @@ def hack_line_numbers(code):
     new_code = new.code(
         code.co_argcount, code.co_nlocals, code.co_stacksize, code.co_flags,
         code.co_code, tuple(new_consts), code.co_names, code.co_varnames,
-        code.co_filename, code.co_name, 0, new_lnotab
-        )
+        code.co_filename, code.co_name, 0, new_lnotab, code.co_freevars,
+        code.co_cellvars)
     return new_code
 
 def hack_file(f):

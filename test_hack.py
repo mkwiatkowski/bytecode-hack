@@ -228,3 +228,12 @@ class TestBytecodeTraceWithExceptions(TestBytecodeTrace):
         self.assert_trace(('c_call', (abs, ["a"], {})),
                           ('c_call', (chr, [97], {})),
                           ('c_return', 'a'))
+
+class TestHackLineNumbers:
+    def test_handles_functions_with_free_variables(self):
+        x = 1
+        def fun():
+            return x + 1
+        fun.func_code = hack_line_numbers(fun.func_code)
+        assert_equal(fun(), 2)
+
