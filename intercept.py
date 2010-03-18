@@ -39,8 +39,8 @@ def doit():
     except ValueError:
         pass
     property(doc="asdf")
-    z = {'source': '1', 'filename': '', 'mode': 'eval'}
-    compile(**z)
+    z = {'real': 1, 'imag': 2}
+    complex(**z)
     print 5, 6
     print
 

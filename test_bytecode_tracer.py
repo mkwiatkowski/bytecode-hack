@@ -74,59 +74,53 @@ class TestBytecodeTracerWithDifferentArgumentsCombinations(TestBytecodeTracer):
 
     def test_traces_builtin_functions_with_kwargs(self):
         def fun():
-            global return_value
-            z = {'source': '1', 'filename': '', 'mode': 'eval'}
-            return_value = compile(**z)
+            z = {'real': 1, 'imag': 2}
+            complex(**z)
         self.trace_function(fun)
-        self.assert_trace(('c_call', (compile, [], {'source': '1', 'filename': '', 'mode': 'eval'})),
-                          ('c_return', return_value))
+        self.assert_trace(('c_call', (complex, [], {'real': 1, 'imag': 2})),
+                          ('c_return', complex(1, 2)))
 
     def test_traces_builtin_functions_with_keyword_and_kwargs(self):
         def fun():
-            global return_value
-            z = {'filename': "<string>", 'mode': 'eval'}
-            return_value = compile(source="1", **z)
+            z = {'imag': 2}
+            complex(real=1, **z)
         self.trace_function(fun)
-        self.assert_trace(('c_call', (compile, [], {'source': '1', 'filename': '<string>', 'mode': 'eval'})),
-                          ('c_return', return_value))
+        self.assert_trace(('c_call', (complex, [], {'real': 1, 'imag': 2})),
+                          ('c_return', complex(1, 2)))
 
     def test_traces_builtin_functions_with_keyword_and_varargs(self):
         def fun():
-            global return_value
-            a = ("1", "", 'eval')
-            return_value = compile(*a, flags=0)
+            a = (1,)
+            complex(imag=2, *a)
         self.trace_function(fun)
-        self.assert_trace(('c_call', (compile, ["1", "", 'eval'], {'flags': 0})),
-                          ('c_return', return_value))
+        self.assert_trace(('c_call', (complex, [1], {'imag': 2})),
+                          ('c_return', complex(1, 2)))
 
     def test_traces_builtin_functions_with_both_varargs_and_kwargs(self):
         def fun():
-            global return_value
-            a = ("1", "", 'eval')
-            k = {'flags': 0}
-            return_value = compile(*a, **k)
+            a = ("asdf", "ascii")
+            k = {'errors': 'ignore'}
+            unicode(*a, **k)
         self.trace_function(fun)
-        self.assert_trace(('c_call', (compile, ["1", "", 'eval'], {'flags': 0})),
-                          ('c_return', return_value))
+        self.assert_trace(('c_call', (unicode, ["asdf", "ascii"], {'errors': 'ignore'})),
+                          ('c_return', unicode('asdf')))
 
     def test_traces_builtin_functions_with_keyword_varargs_and_kwargs(self):
         def fun():
-            global return_value
-            a = ("1", "", 'eval')
-            k = {'flags': 0}
-            return_value = compile(dont_inherit=0, *a, **k)
+            a = ("asdf",)
+            k = {'encoding': 'ascii'}
+            unicode(errors='ignore', *a, **k)
         self.trace_function(fun)
-        self.assert_trace(('c_call', (compile, ["1", "", 'eval'], {'flags': 0, 'dont_inherit': 0})),
-                          ('c_return', return_value))
+        self.assert_trace(('c_call', (unicode, ["asdf"], {'encoding': 'ascii', 'errors': 'ignore'})),
+                          ('c_return', unicode('asdf')))
 
     def test_traces_builtin_functions_with_positional_argument_and_kwargs(self):
         def fun():
-            global return_value
-            z = {'filename': "<string>", 'mode': 'eval'}
-            return_value = compile("1", **z)
+            z = {'imag': 2}
+            complex(1, **z)
         self.trace_function(fun)
-        self.assert_trace(('c_call', (compile, ["1"], {'filename': '<string>', 'mode': 'eval'})),
-                          ('c_return', return_value))
+        self.assert_trace(('c_call', (complex, [1], {'imag': 2})),
+                          ('c_return', complex(1, 2)))
 
     def test_traces_builtin_functions_with_positional_argument_and_varargs(self):
         def fun():
@@ -139,48 +133,44 @@ class TestBytecodeTracerWithDifferentArgumentsCombinations(TestBytecodeTracer):
 
     def test_traces_builtin_functions_with_positional_argument_varargs_and_kwargs(self):
         def fun():
-            global return_value
-            a = ("", 'eval')
-            k = {'flags': 0}
-            return_value = compile("1", *a, **k)
+            a = ('ascii',)
+            k = {'errors': 'ignore'}
+            unicode("asdf", *a, **k)
         self.trace_function(fun)
-        self.assert_trace(('c_call', (compile, ["1", "", 'eval'], {'flags': 0})),
-                          ('c_return', return_value))
+        self.assert_trace(('c_call', (unicode, ["asdf", "ascii"], {'errors': 'ignore'})),
+                          ('c_return', unicode('asdf')))
 
     def test_traces_builtin_functions_with_positional_argument_and_keyword_argument(self):
         def fun():
-            global return_value
-            return_value = compile("1", "", mode='eval')
+            unicode("asdf", "ascii", errors='ignore')
         self.trace_function(fun)
-        self.assert_trace(('c_call', (compile, ["1", ""], {'mode': 'eval'})),
-                          ('c_return', return_value))
+        self.assert_trace(('c_call', (unicode, ["asdf", "ascii"], {'errors': 'ignore'})),
+                          ('c_return', unicode('asdf')))
 
     def test_traces_builtin_functions_with_positional_argument_and_keyword_and_kwargs(self):
         def fun():
-            global return_value
-            k = {'flags': 0}
-            return_value = compile("1", "", mode='eval', **k)
+            k = {'errors': 'ignore'}
+            unicode("asdf", encoding='ascii', **k)
         self.trace_function(fun)
-        self.assert_trace(('c_call', (compile, ["1", ""], {'mode': 'eval', 'flags': 0})),
-                          ('c_return', return_value))
+        self.assert_trace(('c_call', (unicode, ["asdf"], {'encoding': 'ascii', 'errors': 'ignore'})),
+                          ('c_return', unicode('asdf')))
 
     def test_traces_builtin_functions_with_positional_argument_and_keyword_and_varargs(self):
         def fun():
-            global return_value
-            a = ("", 'eval')
-            return_value = compile("1", *a, flags=0)
+            a = ("ascii",)
+            unicode("asdf", errors='ignore', *a)
         self.trace_function(fun)
-        self.assert_trace(('c_call', (compile, ["1", "", 'eval'], {'flags': 0})),
-                          ('c_return', return_value))
+        self.assert_trace(('c_call', (unicode, ["asdf", "ascii"], {'errors': 'ignore'})),
+                          ('c_return', unicode('asdf')))
 
     def test_traces_builtin_functions_with_positional_argument_and_keyword_and_varargs_and_kwargs(self):
         def fun():
             global return_value
-            a = ("", 'eval')
-            k = {'dont_inherit': 0}
-            return_value = compile("1", flags=0, *a, **k)
+            a = (1,)
+            k = {'doc': ""}
+            return_value = property(2, fdel=3, *a, **k)
         self.trace_function(fun)
-        self.assert_trace(('c_call', (compile, ["1", "", 'eval'], {'flags': 0, 'dont_inherit': 0})),
+        self.assert_trace(('c_call', (property, [2, 1], {'fdel': 3, 'doc': ""})),
                           ('c_return', return_value))
 
 class TestBytecodeTracerReturnValues(TestBytecodeTracer):
