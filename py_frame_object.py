@@ -1,3 +1,12 @@
+"""Definition of PyFrameObject CPython's structure in ctypes. With this you can
+get into frame internals without going to the C level.
+
+See frameobject.h for reference:
+  http://svn.python.org/view/python/trunk/Include/frameobject.h?view=markup
+
+Note that not all fields are defined, only those that I needed.
+"""
+
 from ctypes import c_int, c_long, py_object, cast, Structure, POINTER
 
 
