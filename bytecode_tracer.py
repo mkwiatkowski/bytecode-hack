@@ -1,7 +1,7 @@
 import opcode
 from types import CodeType
 
-from frame import get_value_stack
+from py_frame_object import get_value_stack
 
 
 def flatlist_to_dict(alist):
