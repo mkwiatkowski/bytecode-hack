@@ -1,15 +1,9 @@
-from ctypes import *
+from ctypes import c_int, c_long, py_object, cast, Structure, POINTER
 
 
 ssize_t = c_long
-CO_MAXBLOCKS = 20
 
-class PyTryBlock(Structure):
-    _fields_ = [("b_type", c_int),
-                ("b_handler", c_int),
-                ("b_level", c_int)]
-
-class Frame(Structure):
+class PyFrameObject(Structure):
     _fields_ = [("ob_refcnt", ssize_t),
                 ("ob_type", py_object),
                 ("ob_size", ssize_t),
@@ -27,12 +21,10 @@ class Frame(Structure):
                 ("f_tstate", py_object),
                 ("f_lasti", c_int),
                 ("f_lineno", c_int),
-                ("f_iblock", c_int),
-                ("f_blockstack", PyTryBlock * CO_MAXBLOCKS),
-                ("f_localsplus", py_object * 10)]
+                ("f_iblock", c_int)]
 
 def _frame_internals(frame):
-    return cast(id(frame), POINTER(Frame)).contents
+    return cast(id(frame), POINTER(PyFrameObject)).contents
 
 def get_value_stack(frame):
     return _frame_internals(frame).f_valuestack
