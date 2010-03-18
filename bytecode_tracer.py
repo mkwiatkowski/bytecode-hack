@@ -101,7 +101,7 @@ def stack_bottom(frame):
     """
     return get_value_stack(frame)[0]
 
-was_c_function_call = False
+call_stack = []
 def btrace(frame, event):
     """Tries to recognize the current event in terms of calls to and returns
     from C.
@@ -117,7 +117,6 @@ def btrace(frame, event):
 
     In other cases, None is returned.
     """
-    global was_c_function_call
     if event == 'line':
         bcode = current_bytecode(frame)
         if bcode.startswith("CALL_FUNCTION"):
@@ -128,7 +127,7 @@ def btrace(frame, event):
             if not is_c_func(function):
                 rewrite_function(function)
                 return
-            was_c_function_call = True
+            call_stack.append(True)
             varargs, doublestar = False, False
             if bcode == "CALL_FUNCTION_VAR":
                 varargs = True
@@ -139,13 +138,15 @@ def btrace(frame, event):
             return 'c_call', (function,
                               positional_args(frame, varargs=varargs),
                               keyword_args(frame, varargs=varargs, doublestar=doublestar))
-        elif was_c_function_call:
-            was_c_function_call = False
+        elif call_stack[-1]:
+            call_stack.pop()
             return 'c_return', stack_bottom(frame)
         elif bcode.startswith("PRINT_"):
             return 'print', None # TODO
-    elif event == 'exception' and was_c_function_call:
-        was_c_function_call = False
+    elif event == 'call':
+        call_stack.append(False)
+    elif event in ['exception', 'return']:
+        call_stack.pop()
         return None
 
 def rewrite_lnotab(code):

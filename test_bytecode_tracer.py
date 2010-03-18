@@ -227,6 +227,15 @@ class TestBytecodeTracerAutomaticRewriting(TestBytecodeTracer):
         self.assert_trace(('c_call', (abs, [-2], {})),
                           ('c_return', 2))
 
+    def test_handles_python_functions_called_from_within_c_functions(self):
+        def other(x):
+            return x + 1
+        def fun():
+            map(other, [1, 2, 3])
+        self.trace_function(fun)
+        self.assert_trace(('c_call', (map, [other, [1, 2, 3]], {})),
+                          ('c_return', [2, 3, 4]))
+
 class TestRewriteFunction:
     def test_handles_functions_with_free_variables(self):
         x = 1
