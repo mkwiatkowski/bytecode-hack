@@ -17,7 +17,7 @@ def trace(frame, event, arg):
                 print "C_RETURN", repr(rest)
             elif ev == 'print':
                 print "PRINT"
-        except (TypeError,):
+        except TypeError:
             pass
     elif event == 'call':
         print "CALL", frame.f_code.co_name, inspect.getargvalues(frame)
