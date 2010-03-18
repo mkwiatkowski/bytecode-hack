@@ -204,3 +204,27 @@ class TestBytecodeTraceWithExceptions(TestBytecodeTrace):
         self.assert_trace(('c_call', (chr, [256], {})),
                           ('c_call', (chr, [90], {})),
                           ('c_return', 'Z'))
+
+    def test_keeps_tracing_properly_after_no_arguments_exception(self):
+        def fun():
+            try:
+                abs()
+            except TypeError:
+                pass
+            chr(65)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', (abs, [], {})),
+                          ('c_call', (chr, [65], {})),
+                          ('c_return', 'A'))
+
+    def test_keeps_tracing_properly_after_bad_arguments_exception(self):
+        def fun():
+            try:
+                abs("a")
+            except TypeError:
+                pass
+            chr(97)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', (abs, ["a"], {})),
+                          ('c_call', (chr, [97], {})),
+                          ('c_return', 'a'))
