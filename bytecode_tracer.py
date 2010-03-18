@@ -164,11 +164,10 @@ def rewrite_lnotab(code):
             new_consts.append(rewrite_lnotab(const))
         else:
             new_consts.append(const)
-    new_code = CodeType(code.co_argcount, code.co_nlocals, code.co_stacksize,
+    return CodeType(code.co_argcount, code.co_nlocals, code.co_stacksize,
         code.co_flags, code.co_code, tuple(new_consts), code.co_names,
         code.co_varnames, code.co_filename, code.co_name, 0, new_lnotab,
         code.co_freevars, code.co_cellvars)
-    return new_code
 
 def rewrite_function(function):
     function.func_code = rewrite_lnotab(function.func_code)
