@@ -106,12 +106,12 @@ def bytecode_trace(frame):
     """Return description of an event with possible side-effects.
 
     Currently supported events:
-     * ('c_call', function, positional_arguments, keyword_arguments)
+     * ('c_call', (function, positional_arguments, keyword_arguments))
        A call to a C function with given arguments is about to happen.
      * ('c_return', return_value)
        A C function returned with given value (it will always be the function
        for the most recent 'c_call' event.
-     * ('print',)
+     * ('print', None)
        A print statement is about to be executed.
 
     In other cases, None is returned.
@@ -124,16 +124,23 @@ def bytecode_trace(frame):
             return
         was_c_function_call = True
         if bcode == "CALL_FUNCTION":
-            return 'c_call', function, positional_args(frame), keyword_args(frame)
+            return 'c_call', (function,
+                              positional_args(frame),
+                              keyword_args(frame))
         elif bcode == "CALL_FUNCTION_VAR":
-            return 'c_call', function, positional_args(frame, varargs=True), keyword_args(frame)
+            return 'c_call', (function,
+                              positional_args(frame, varargs=True),
+                              keyword_args(frame))
         elif bcode == "CALL_FUNCTION_KW":
-            return 'c_call', function, positional_args(frame), keyword_args(frame, doublestar=True)
+            return 'c_call', (function,
+                              positional_args(frame),
+                              keyword_args(frame, doublestar=True))
         elif bcode == "CALL_FUNCTION_VAR_KW":
-            return 'c_call', function, positional_args(frame, varargs=True),\
-                keyword_args(frame, varargs=True, doublestar=True)
+            return 'c_call', (function,
+                              positional_args(frame, varargs=True),
+                              keyword_args(frame, varargs=True, doublestar=True))
     elif was_c_function_call:
         was_c_function_call = False
         return 'c_return', stack_top(frame)
     elif bcode.startswith("PRINT_"):
-        return 'print', # TODO
+        return 'print', None # TODO
