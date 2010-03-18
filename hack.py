@@ -116,19 +116,20 @@ def bytecode_trace(frame):
     """
     global was_c_function_call
     bcode = current_bytecode(frame)
-    if bcode == "CALL_FUNCTION" and is_c_func(stack_top(frame)):
+    if bcode.startswith("CALL_FUNCTION"):
+        function = stack_top(frame)
+        if not is_c_func(function):
+            return None, None, None, None
         was_c_function_call = True
-        return 'c_call', stack_top(frame), positional_args(frame), keyword_args(frame)
-    elif bcode == "CALL_FUNCTION_VAR" and is_c_func(stack_top(frame)):
-        was_c_function_call = True
-        return 'c_call', stack_top(frame), positional_args(frame, varargs=True), keyword_args(frame)
-    elif bcode == "CALL_FUNCTION_KW" and is_c_func(stack_top(frame)):
-        was_c_function_call = True
-        return 'c_call', stack_top(frame), positional_args(frame), keyword_args(frame, doublestar=True)
-    elif bcode == "CALL_FUNCTION_VAR_KW" and is_c_func(stack_top(frame)):
-        was_c_function_call = True
-        return 'c_call', stack_top(frame), positional_args(frame, varargs=True),\
-            keyword_args(frame, varargs=True, doublestar=True)
+        if bcode == "CALL_FUNCTION":
+            return 'c_call', function, positional_args(frame), keyword_args(frame)
+        elif bcode == "CALL_FUNCTION_VAR":
+            return 'c_call', function, positional_args(frame, varargs=True), keyword_args(frame)
+        elif bcode == "CALL_FUNCTION_KW":
+            return 'c_call', function, positional_args(frame), keyword_args(frame, doublestar=True)
+        elif bcode == "CALL_FUNCTION_VAR_KW":
+            return 'c_call', function, positional_args(frame, varargs=True),\
+                keyword_args(frame, varargs=True, doublestar=True)
     elif was_c_function_call:
         was_c_function_call = False
         return 'c_return', None, stack_top(frame), None
