@@ -1,7 +1,6 @@
 import dis
 import sys
 
-from nose import SkipTest
 from nose.tools import assert_equal
 
 from bytecode_tracer import btrace, rewrite_lnotab
