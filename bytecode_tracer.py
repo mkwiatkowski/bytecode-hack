@@ -135,9 +135,11 @@ def btrace(frame, event):
                 doublestar = True
             elif bcode == "CALL_FUNCTION_VAR_KW":
                 varargs, doublestar = True, True
-            return 'c_call', (function,
-                              positional_args(frame, varargs=varargs),
-                              keyword_args(frame, varargs=varargs, doublestar=doublestar))
+            pargs = positional_args(frame, varargs=varargs)
+            kargs = keyword_args(frame, varargs=varargs, doublestar=doublestar)
+            # Rewrite all callables that may have been passed to the C function.
+            rewrite_all(pargs + kargs.values())
+            return 'c_call', (function, pargs, kargs)
         elif call_stack[-1]:
             call_stack.pop()
             return 'c_return', stack_bottom(frame)
@@ -161,7 +163,7 @@ def rewrite_lnotab(code):
     new_lnotab = "\x01\x01" * (n_bytes-1)
     new_consts = []
     for const in code.co_consts:
-        if type(const) == CodeType:
+        if type(const) is CodeType:
             new_consts.append(rewrite_lnotab(const))
         else:
             new_consts.append(const)
@@ -172,3 +174,8 @@ def rewrite_lnotab(code):
 
 def rewrite_function(function):
     function.func_code = rewrite_lnotab(function.func_code)
+
+def rewrite_all(objects):
+    for obj in objects:
+        if hasattr(obj, 'func_code'):
+            rewrite_function(obj)
