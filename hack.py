@@ -6,20 +6,19 @@ from frame import get_value_stack
 def flatlist_to_dict(alist):
     return dict(zip(alist[::2], alist[1::2]))
 
-def CALL_FUNCTION_arg(frame):
+def CALL_FUNCTION_args_counts(frame):
+    """Number of arguments placed on stack is encoded as two bytes after
+    the CALL_FUNCTION bytecode.
+    """
     code = frame.f_code.co_code[frame.f_lasti:]
     if opcode.opname[ord(code[0])].startswith("CALL_FUNCTION"):
         return ord(code[1]), ord(code[2])
 
 def positional_args_count(frame):
-    counts = CALL_FUNCTION_arg(frame)
-    if counts:
-        return counts[0]
+    return CALL_FUNCTION_args_counts(frame)[0]
 
 def keyword_args_count(frame):
-    counts = CALL_FUNCTION_arg(frame)
-    if counts:
-        return counts[1]
+    return CALL_FUNCTION_args_counts(frame)[1]
 
 def current_bytecode(frame):
     code = frame.f_code.co_code[frame.f_lasti]
