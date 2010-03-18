@@ -102,7 +102,7 @@ def stack_bottom(frame):
     return get_value_stack(frame)[0]
 
 was_c_function_call = False
-def trace(frame, event):
+def btrace(frame, event):
     """Tries to recognize the current event in terms of calls to and returns
     from C.
 

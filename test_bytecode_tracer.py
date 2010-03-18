@@ -4,7 +4,7 @@ import sys
 from nose import SkipTest
 from nose.tools import assert_equal
 
-from bytecode_tracer import trace, rewrite_lnotab
+from bytecode_tracer import btrace, rewrite_lnotab
 
 
 return_value = None
@@ -15,7 +15,7 @@ class TestBytecodeTracer:
     def _trace(self, frame, event, arg):
         try:
             if arg is not sys.settrace:
-                ret = trace(frame, event)
+                ret = btrace(frame, event)
                 if ret is not None and ret[0] is not None:
                     self._traces.append(ret)
         except TypeError:

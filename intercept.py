@@ -2,7 +2,7 @@ import dis
 import inspect
 import sys
 
-from bytecode_tracer import trace as btrace
+from bytecode_tracer import btrace
 from bytecode_tracer import rewrite_lnotab
 
 
