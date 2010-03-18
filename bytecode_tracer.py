@@ -122,7 +122,11 @@ def btrace(frame, event):
         bcode = current_bytecode(frame)
         if bcode.startswith("CALL_FUNCTION"):
             function = stack_bottom(frame)
+            # Python functions are handled by the standard trace mechanism, but
+            # we have to make sure any C calls the function makes can be traced
+            # by us later, so we rewrite its bytecode.
             if not is_c_func(function):
+                rewrite_function(function)
                 return
             was_c_function_call = True
             varargs, doublestar = False, False
@@ -165,3 +169,6 @@ def rewrite_lnotab(code):
         code.co_varnames, code.co_filename, code.co_name, 0, new_lnotab,
         code.co_freevars, code.co_cellvars)
     return new_code
+
+def rewrite_function(function):
+    function.func_code = rewrite_lnotab(function.func_code)

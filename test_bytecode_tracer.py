@@ -217,6 +217,16 @@ class TestBytecodeTracerWithExceptions(TestBytecodeTracer):
                           ('c_call', (chr, [97], {})),
                           ('c_return', 'a'))
 
+class TestBytecodeTracerAutomaticRewriting(TestBytecodeTracer):
+    def test_automatically_traces_bytescodes_of_other_callables_being_called(self):
+        def other():
+            abs(-2)
+        def fun():
+            other()
+        self.trace_function(fun)
+        self.assert_trace(('c_call', (abs, [-2], {})),
+                          ('c_return', 2))
+
 class TestRewriteLnotab:
     def test_handles_functions_with_free_variables(self):
         x = 1
