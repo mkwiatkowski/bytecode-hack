@@ -53,7 +53,8 @@ def keyword_args_from_double_star(frame, skip_one=False):
 def keyword_args_from_stack(frame):
     """Key/value pairs placed explicitly on stack as keyword arguments.
     """
-    args = get_value_stack(frame)[1:1+2*keyword_args_count(frame)]
+    keywords_start = 1 + positional_args_count(frame)
+    args = get_value_stack(frame)[keywords_start:keywords_start+2*keyword_args_count(frame)]
     return flatlist_to_dict(args)
 
 def keyword_args(frame, varargs=False, doublestar=False):
