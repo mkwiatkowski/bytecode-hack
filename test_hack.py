@@ -123,3 +123,12 @@ class TestBytecodeTrace:
         self.assert_trace(('c_call', compile, ["1"], {'filename': '<string>', 'mode': 'eval'}),
                           ('c_return', None, return_value, None))
 
+    def test_traces_builtin_functions_with_positional_argument_and_varargs(self):
+        def fun():
+            global return_value
+            a = ("", 'eval')
+            return_value = compile("1", *a)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', compile, ["1", "", 'eval'], {}),
+                          ('c_return', None, return_value, None))
+

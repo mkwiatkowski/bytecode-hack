@@ -37,11 +37,9 @@ def positional_args_from_varargs(frame):
 def positional_args(frame, varargs=False):
     """List of all positional arguments passed to a C function.
     """
+    args = list(positional_args_from_stack(frame))
     if varargs:
-        args = list(positional_args_from_varargs(frame))
-    else:
-        args = []
-    args.extend(positional_args_from_stack(frame))
+        args.extend(positional_args_from_varargs(frame))
     return args
 
 def keyword_args_from_double_star(frame, skip_one=False):
