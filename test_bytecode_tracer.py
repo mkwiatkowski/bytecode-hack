@@ -3,7 +3,7 @@ import sys
 
 from nose.tools import assert_equal
 
-from bytecode_tracer import btrace, rewrite_lnotab
+from bytecode_tracer import btrace, rewrite_function
 
 
 return_value = None
@@ -26,7 +26,7 @@ class TestBytecodeTracer:
 
     def trace_function(self, fun):
         dis.dis(fun.func_code)
-        fun.func_code = rewrite_lnotab(fun.func_code)
+        rewrite_function(fun)
         sys.settrace(self._trace)
         try:
             fun()
@@ -227,11 +227,10 @@ class TestBytecodeTracerAutomaticRewriting(TestBytecodeTracer):
         self.assert_trace(('c_call', (abs, [-2], {})),
                           ('c_return', 2))
 
-class TestRewriteLnotab:
+class TestRewriteFunction:
     def test_handles_functions_with_free_variables(self):
         x = 1
         def fun():
             return x + 1
-        fun.func_code = rewrite_lnotab(fun.func_code)
+        rewrite_function(fun)
         assert_equal(fun(), 2)
-

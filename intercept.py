@@ -3,7 +3,7 @@ import inspect
 import sys
 
 from bytecode_tracer import btrace
-from bytecode_tracer import rewrite_lnotab
+from bytecode_tracer import rewrite_function
 
 
 def trace(frame, event, arg):
@@ -48,8 +48,7 @@ def doit():
 
 print dis.dis(doit)
 
-fun.func_code = rewrite_lnotab(fun.func_code)
-doit.func_code = rewrite_lnotab(doit.func_code)
+rewrite_function(doit)
 
 sys.settrace(trace)
 try:
