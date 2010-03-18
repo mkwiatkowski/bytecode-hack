@@ -8,13 +8,16 @@ from hackpyc import hack_line_numbers
 
 def trace(frame, event, arg):
     if event == 'line':
-        event, func, pargs, kargs = bytecode_trace(frame)
-        if event == 'c_call':
-            print "C_CALL", func.__name__, repr(pargs), repr(kargs)
-        elif event == 'c_return':
-            print "C_RETURN", repr(pargs)
-        elif event == 'print':
-            print "PRINT"
+        ret = bytecode_trace(frame)
+        if ret is not None:
+            if ret[0] == 'c_call':
+                _, func, pargs, kargs = ret
+                print "C_CALL", func.__name__, repr(pargs), repr(kargs)
+            elif ret[0] == 'c_return':
+                retval = ret[1]
+                print "C_RETURN", repr(retval)
+            elif ret[0] == 'print':
+                print "PRINT"
     elif event == 'call':
         print "CALL", frame.f_code.co_name, inspect.getargvalues(frame)
     elif event == 'return':

@@ -16,7 +16,7 @@ class TestBytecodeTrace:
     def _trace(self, frame, event, arg):
         if event == 'line' and arg is not sys.settrace:
             ret = bytecode_trace(frame)
-            if ret[0] is not None:
+            if ret is not None and ret[0] is not None:
                 self._traces.append(ret)
         return self._trace
 
@@ -35,21 +35,21 @@ class TestBytecodeTrace:
             list()
         self.trace_function(fun)
         self.assert_trace(('c_call', list, [], {}),
-                          ('c_return', None, [], None))
+                          ('c_return', []))
 
     def test_traces_builtin_functions_with_single_argument(self):
         def fun():
             repr(4)
         self.trace_function(fun)
         self.assert_trace(('c_call', repr, [4], {}),
-                          ('c_return', None, "4", None))
+                          ('c_return', "4"))
 
     def test_traces_builtin_functions_with_two_arguments(self):
         def fun():
             pow(2, 3)
         self.trace_function(fun)
         self.assert_trace(('c_call', pow, [2, 3], {}),
-                          ('c_return', None, 8, None))
+                          ('c_return', 8))
 
     def test_traces_builtin_functions_with_keyword_argument(self):
         def fun():
@@ -57,7 +57,7 @@ class TestBytecodeTrace:
             return_value = property(doc="asdf")
         self.trace_function(fun)
         self.assert_trace(('c_call', property, [], {'doc': "asdf"}),
-                          ('c_return', None, return_value, None))
+                          ('c_return', return_value))
 
     def test_traces_builtin_functions_with_varargs(self):
         def fun():
@@ -65,7 +65,7 @@ class TestBytecodeTrace:
             range(*x)
         self.trace_function(fun)
         self.assert_trace(('c_call', range, [1, 10], {}),
-                          ('c_return', None, [1, 2, 3, 4, 5, 6, 7, 8, 9], None))
+                          ('c_return', [1, 2, 3, 4, 5, 6, 7, 8, 9]))
 
     def test_traces_builtin_functions_with_kwargs(self):
         def fun():
@@ -74,7 +74,7 @@ class TestBytecodeTrace:
             return_value = compile(**z)
         self.trace_function(fun)
         self.assert_trace(('c_call', compile, [], {'source': '1', 'filename': '', 'mode': 'eval'}),
-                          ('c_return', None, return_value, None))
+                          ('c_return', return_value))
 
     def test_traces_builtin_functions_with_keyword_and_kwargs(self):
         def fun():
@@ -83,7 +83,7 @@ class TestBytecodeTrace:
             return_value = compile(source="1", **z)
         self.trace_function(fun)
         self.assert_trace(('c_call', compile, [], {'source': '1', 'filename': '<string>', 'mode': 'eval'}),
-                          ('c_return', None, return_value, None))
+                          ('c_return', return_value))
 
     def test_traces_builtin_functions_with_keyword_and_varargs(self):
         def fun():
@@ -92,7 +92,7 @@ class TestBytecodeTrace:
             return_value = compile(*a, flags=0)
         self.trace_function(fun)
         self.assert_trace(('c_call', compile, ["1", "", 'eval'], {'flags': 0}),
-                          ('c_return', None, return_value, None))
+                          ('c_return', return_value))
 
     def test_traces_builtin_functions_with_both_varargs_and_kwargs(self):
         def fun():
@@ -102,7 +102,7 @@ class TestBytecodeTrace:
             return_value = compile(*a, **k)
         self.trace_function(fun)
         self.assert_trace(('c_call', compile, ["1", "", 'eval'], {'flags': 0}),
-                          ('c_return', None, return_value, None))
+                          ('c_return', return_value))
 
     def test_traces_builtin_functions_with_keyword_varargs_and_kwargs(self):
         def fun():
@@ -112,7 +112,7 @@ class TestBytecodeTrace:
             return_value = compile(dont_inherit=0, *a, **k)
         self.trace_function(fun)
         self.assert_trace(('c_call', compile, ["1", "", 'eval'], {'flags': 0, 'dont_inherit': 0}),
-                          ('c_return', None, return_value, None))
+                          ('c_return', return_value))
 
     def test_traces_builtin_functions_with_positional_argument_and_kwargs(self):
         def fun():
@@ -121,7 +121,7 @@ class TestBytecodeTrace:
             return_value = compile("1", **z)
         self.trace_function(fun)
         self.assert_trace(('c_call', compile, ["1"], {'filename': '<string>', 'mode': 'eval'}),
-                          ('c_return', None, return_value, None))
+                          ('c_return', return_value))
 
     def test_traces_builtin_functions_with_positional_argument_and_varargs(self):
         def fun():
@@ -130,7 +130,7 @@ class TestBytecodeTrace:
             return_value = compile("1", *a)
         self.trace_function(fun)
         self.assert_trace(('c_call', compile, ["1", "", 'eval'], {}),
-                          ('c_return', None, return_value, None))
+                          ('c_return', return_value))
 
     def test_traces_builtin_functions_with_positional_argument_varargs_and_kwargs(self):
         def fun():
@@ -140,7 +140,7 @@ class TestBytecodeTrace:
             return_value = compile("1", *a, **k)
         self.trace_function(fun)
         self.assert_trace(('c_call', compile, ["1", "", 'eval'], {'flags': 0}),
-                          ('c_return', None, return_value, None))
+                          ('c_return', return_value))
 
     def test_traces_builtin_functions_with_positional_argument_and_keyword_argument(self):
         def fun():
@@ -148,7 +148,7 @@ class TestBytecodeTrace:
             return_value = compile("1", "", mode='eval')
         self.trace_function(fun)
         self.assert_trace(('c_call', compile, ["1", ""], {'mode': 'eval'}),
-                          ('c_return', None, return_value, None))
+                          ('c_return', return_value))
 
     def test_traces_builtin_functions_with_positional_argument_and_keyword_and_kwargs(self):
         def fun():
@@ -157,7 +157,7 @@ class TestBytecodeTrace:
             return_value = compile("1", "", mode='eval', **k)
         self.trace_function(fun)
         self.assert_trace(('c_call', compile, ["1", ""], {'mode': 'eval', 'flags': 0}),
-                          ('c_return', None, return_value, None))
+                          ('c_return', return_value))
 
     def test_traces_builtin_functions_with_positional_argument_and_keyword_and_varargs(self):
         def fun():
@@ -166,7 +166,7 @@ class TestBytecodeTrace:
             return_value = compile("1", *a, flags=0)
         self.trace_function(fun)
         self.assert_trace(('c_call', compile, ["1", "", 'eval'], {'flags': 0}),
-                          ('c_return', None, return_value, None))
+                          ('c_return', return_value))
 
     def test_traces_builtin_functions_with_positional_argument_and_keyword_and_varargs_and_kwargs(self):
         def fun():
@@ -176,4 +176,4 @@ class TestBytecodeTrace:
             return_value = compile("1", flags=0, *a, **k)
         self.trace_function(fun)
         self.assert_trace(('c_call', compile, ["1", "", 'eval'], {'flags': 0, 'dont_inherit': 0}),
-                          ('c_return', None, return_value, None))
+                          ('c_return', return_value))
