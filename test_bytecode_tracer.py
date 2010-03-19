@@ -217,6 +217,33 @@ class TestBytecodeTracerWithExceptions(TestBytecodeTracer):
                           ('c_call', (chr, [97], {})),
                           ('c_return', 'a'))
 
+    def test_keeps_tracing_properly_after_not_callable_is_passed_when_it_was_expected(self):
+        def fun():
+            try:
+                map(1, [2, 3])
+            except TypeError: # 'int' object is not callable
+                pass
+            chr(66)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', (map, [1, [2, 3]], {})),
+                          ('c_call', (chr, [66], {})),
+                          ('c_return', 'B'))
+
+    def test_keeps_tracing_properly_after_exception_in_callback_code(self):
+        def bad(x):
+            if x > 0:
+                raise ValueError
+        def fun():
+            try:
+                map(bad, [0, 1, 2])
+            except ValueError:
+                pass
+            chr(67)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', (map, [bad, [0, 1, 2]], {})),
+                          ('c_call', (chr, [67], {})),
+                          ('c_return', 'C'))
+
 class TestBytecodeTracerAutomaticRewriting(TestBytecodeTracer):
     def test_automatically_traces_bytescodes_of_other_callables_being_called(self):
         def other():

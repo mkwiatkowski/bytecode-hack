@@ -149,9 +149,15 @@ def btrace(frame, event):
             return 'print', None # TODO
     elif event == 'call':
         call_stack.append(False)
-    elif event in ['exception', 'return']:
+    # When an exception happens in Python code, 'exception' and 'return' events
+    # are reported in succession. Exceptions raised from C functions don't
+    # generate the 'return' event, so we have to pop from the stack right away.
+    elif event == 'exception' and call_stack[-1]:
         call_stack.pop()
-        return None
+    # Python functions always generate a 'return' event, even when an exception
+    # has been raised, so let's just check for that.
+    elif event == 'return':
+        call_stack.pop()
 
 def rewrite_lnotab(code):
     """Replace a code object's line number information to claim that every
