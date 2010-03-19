@@ -46,11 +46,12 @@ def doit():
 
 def dothat():
     try:
-        x = 4
-        y = 5
-        chr(256)
-    except ValueError:
-        pass
+        try:
+            x = 4
+            y = 5
+            chr(256)
+        except ValueError:
+            complex(3, 10)
     finally:
         chr(128)
 

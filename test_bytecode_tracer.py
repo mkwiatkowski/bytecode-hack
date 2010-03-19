@@ -247,9 +247,10 @@ class TestBytecodeTracerWithExceptions(TestBytecodeTracer):
     def test_keeps_tracing_finally_block_after_an_exception(self):
         def fun():
             try:
-                raise AttributeError
-            except AttributeError:
-                pass
+                try:
+                    raise AttributeError
+                except AttributeError:
+                    pass
             finally:
                 chr(68)
         self.trace_function(fun)
