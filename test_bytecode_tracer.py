@@ -180,6 +180,21 @@ class TestBytecodeTracerReturnValues(TestBytecodeTracer):
         self.assert_trace(('c_call', (coerce, [1, 1.25], {})),
                           ('c_return', (1.0, 1.25)))
 
+class TestBytecodeTracerLanguageConsructs(TestBytecodeTracer):
+    def test_traces_for_loop(self):
+        def fun():
+            for x in range(3):
+                complex(0, x)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', (range, [3], {})),
+                          ('c_return', [0, 1, 2]),
+                          ('c_call', (complex, [0, 0], {})),
+                          ('c_return', complex(0, 0)),
+                          ('c_call', (complex, [0, 1], {})),
+                          ('c_return', complex(0, 1)),
+                          ('c_call', (complex, [0, 2], {})),
+                          ('c_return', complex(0, 2)))
+
 class TestBytecodeTracerWithExceptions(TestBytecodeTracer):
     def test_keeps_tracing_properly_after_an_exception(self):
         def fun():

@@ -44,9 +44,12 @@ class ValueStack(object):
 
     Situation changes when a 'finally' block is entered - the bottom of the
     stack contains None, and we have to remember to skip it both before function
-    calls and returns that happen inside that block. This heuristic of getting
-    to the top of the stack is hopefully correct, but there always may be some
-    corner cases I didn't think of.
+    calls and returns that happen inside that block.
+
+    Similar thing happens during a 'for' loop. Bottom of the stack contains
+    an iterator object. This heuristic of getting to the top of the stack is
+    hopefully correct, but there always may be some corner cases I didn't
+    think of.
     """
     def __init__(self, frame):
         self.stack = get_value_stack(frame)
@@ -64,7 +67,7 @@ class ValueStack(object):
             pass
 
         self.offset = 0
-        if self.stack[0] is None:
+        if not callable(self.stack[0]):
             self.offset = 1
 
         self.args_start = self.offset + 1

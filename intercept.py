@@ -55,14 +55,22 @@ def dothat():
     finally:
         chr(128)
 
+def doloop():
+    chr(90)
+    for x in range(10):
+        chr(97+x)
+    else:
+        complex(2, 3)
+    complex(1, 2)
+
 ######################################################################
 
-print dis.dis(dothat)
+print dis.dis(doloop)
 
-rewrite_function(dothat)
+rewrite_function(doloop)
 
 sys.settrace(trace)
 try:
-    dothat()
+    doloop()
 finally:
     sys.settrace(None)
