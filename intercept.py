@@ -58,6 +58,10 @@ def dothat():
 def doloop():
     chr(90)
     for x in range(10):
+        if x < 3:
+            continue
+        if x > 8:
+            break
         chr(97+x)
     else:
         complex(2, 3)
