@@ -257,6 +257,16 @@ class TestBytecodeTracerWithExceptions(TestBytecodeTracer):
         self.assert_trace(('c_call', (chr, [68], {})),
                           ('c_return', 'D'))
 
+    def test_keeps_tracing_except_block_after_an_exception(self):
+        def fun():
+            try:
+                raise NameError
+            except NameError:
+                complex(1, 2)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', (complex, [1, 2], {})),
+                          ('c_return', complex(1, 2)))
+
 class TestBytecodeTracerAutomaticRewriting(TestBytecodeTracer):
     def test_automatically_traces_bytescodes_of_other_callables_being_called(self):
         def other():
