@@ -44,14 +44,24 @@ def doit():
     print 5, 6
     print
 
+def dothat():
+    try:
+        x = 4
+        y = 5
+        chr(256)
+    except ValueError:
+        pass
+    finally:
+        chr(128)
+
 ######################################################################
 
-print dis.dis(doit)
+print dis.dis(dothat)
 
-rewrite_function(doit)
+rewrite_function(dothat)
 
 sys.settrace(trace)
 try:
-    doit()
+    dothat()
 finally:
     sys.settrace(None)

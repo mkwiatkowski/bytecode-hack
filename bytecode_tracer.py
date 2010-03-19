@@ -6,6 +6,90 @@ from types import CodeType
 from py_frame_object import get_value_stack
 
 
+class ValueStack(object):
+    def __init__(self, frame):
+        self.stack = get_value_stack(frame)
+        self.frame = frame
+
+        try:
+            bcode, self.positional_args_count, self.keyword_args_count = unpack_CALL_FUNCTION(frame)
+            self.args_count = self.positional_args_count + 2*self.keyword_args_count
+            self.varargs, self.doublestar = False, False
+            if bcode == "CALL_FUNCTION_VAR":
+                self.varargs = True
+            elif bcode == "CALL_FUNCTION_KW":
+                self.doublestar = True
+            elif bcode == "CALL_FUNCTION_VAR_KW":
+                self.varargs, self.doublestar = True, True
+        except ValueError:
+            pass
+
+        self.offset = 0
+        if not callable(self.stack[0]): # TODO
+            self.offset = 1
+
+        self.args_start = self.offset + 1
+
+    def bottom(self):
+        """The first object at the value stack.
+
+        It's the function being called for CALL_FUNCTION_* bytecodes and a return
+        value right after the function returns.
+        """
+        return self.stack[self.offset]
+
+    def positional_args(self):
+        """List of all positional arguments passed to a C function.
+        """
+        args = list(self.positional_args_from_stack())
+        if self.varargs:
+            args.extend(self.positional_args_from_varargs())
+        return args
+
+    def positional_args_from_stack(self):
+        """Objects explicitly placed on stack as positional arguments.
+        """
+        positional_start = self.args_start
+        return self.stack[positional_start:positional_start+self.positional_args_count]
+
+    def positional_args_from_varargs(self):
+        """Iterable placed on stack as "*args".
+        """
+        return self.stack_above_args()
+
+    def keyword_args(self):
+        """Dictionary of all keyword arguments passed to a C function.
+        """
+        if self.doublestar:
+            kwds = self.keyword_args_from_double_star().copy()
+        else:
+            kwds = {}
+        kwds.update(self.keyword_args_from_stack())
+        return kwds
+
+    def keyword_args_from_stack(self):
+        """Key/value pairs placed explicitly on stack as keyword arguments.
+        """
+        keywords_start = self.args_start + self.positional_args_count
+        args = self.stack[keywords_start:keywords_start+2*self.keyword_args_count]
+        return flatlist_to_dict(args)
+
+    def keyword_args_from_double_star(self):
+        """Dictionary passed as "**kwds".
+        """
+        if self.varargs:
+            return self.stack_above_args(offset=1)
+        else:
+            return self.stack_above_args()
+
+    def stack_above_args(self, offset=0):
+        """For functions with *varargs and **kwargs will contain a tuple and/or
+        a dictionary. It is an error to access it for other functions.
+        """
+        i = self.args_start + self.args_count + offset
+        return self.stack[i]
+
+
 def flatlist_to_dict(alist):
     return dict(zip(alist[::2], alist[1::2]))
 
@@ -13,65 +97,14 @@ def current_bytecode(frame):
     code = frame.f_code.co_code[frame.f_lasti]
     return opcode.opname[ord(code)]
 
-def CALL_FUNCTION_args_counts(frame):
+def unpack_CALL_FUNCTION(frame):
     """Number of arguments placed on stack is encoded as two bytes after
     the CALL_FUNCTION bytecode.
     """
     code = frame.f_code.co_code[frame.f_lasti:]
-    if opcode.opname[ord(code[0])].startswith("CALL_FUNCTION"):
-        return ord(code[1]), ord(code[2])
-
-def positional_args_count(frame):
-    return CALL_FUNCTION_args_counts(frame)[0]
-
-def keyword_args_count(frame):
-    return CALL_FUNCTION_args_counts(frame)[1]
-
-def positional_args_from_stack(frame):
-    """Objects explicitly placed on stack as positional arguments.
-    """
-    return get_value_stack(frame)[1:1+positional_args_count(frame)]
-
-def positional_args_from_varargs(frame):
-    """Iterable placed on stack as "*args".
-    """
-    return stack_above_args(frame)
-
-def positional_args(frame, varargs=False):
-    """List of all positional arguments passed to a C function.
-    """
-    args = list(positional_args_from_stack(frame))
-    if varargs:
-        args.extend(positional_args_from_varargs(frame))
-    return args
-
-def keyword_args_from_stack(frame):
-    """Key/value pairs placed explicitly on stack as keyword arguments.
-    """
-    keywords_start = 1 + positional_args_count(frame)
-    args = get_value_stack(frame)[keywords_start:keywords_start+2*keyword_args_count(frame)]
-    return flatlist_to_dict(args)
-
-def keyword_args_from_double_star(frame, skip_one=False):
-    """Dictionary passed as "**kwds".
-    """
-    if skip_one:
-        return stack_above_args(frame, offset=1)
-    else:
-        return stack_above_args(frame)
-
-def keyword_args(frame, varargs=False, doublestar=False):
-    """Dictionary of all keyword arguments passed to a C function.
-    """
-    if doublestar:
-        kwds = keyword_args_from_double_star(frame, skip_one=varargs).copy()
-    else:
-        kwds = {}
-    kwds.update(keyword_args_from_stack(frame))
-    return kwds
-
-def args_count(frame):
-    return positional_args_count(frame) + 2*keyword_args_count(frame)
+    name = opcode.opname[ord(code[0])]
+    if name.startswith("CALL_FUNCTION"):
+        return name, ord(code[1]), ord(code[2])
 
 def is_c_func(func):
     """Return True if given function object was implemented in C,
@@ -87,21 +120,6 @@ def is_c_func(func):
     False
     """
     return not hasattr(func, 'func_code')
-
-def stack_above_args(frame, offset=0):
-    """For functions with *varargs and **kwargs will contain a tuple and/or
-    a dictionary. It is an error to access it for other functions.
-    """
-    i = 1 + args_count(frame) + offset
-    return get_value_stack(frame)[i]
-
-def stack_bottom(frame):
-    """The first object at the value stack.
-
-    It's the function being called for CALL_FUNCTION_* bytecodes and a return
-    value right after the function returns.
-    """
-    return get_value_stack(frame)[0]
 
 call_stack = []
 def btrace(frame, event):
@@ -122,37 +140,31 @@ def btrace(frame, event):
     if event == 'line':
         bcode = current_bytecode(frame)
         if bcode.startswith("CALL_FUNCTION"):
-            function = stack_bottom(frame)
+            value_stack = ValueStack(frame)
+            function = value_stack.bottom()
             # Python functions are handled by the standard trace mechanism, but
             # we have to make sure any C calls the function makes can be traced
             # by us later, so we rewrite its bytecode.
             if not is_c_func(function):
                 rewrite_function(function)
                 return
-            call_stack.append(True)
-            varargs, doublestar = False, False
-            if bcode == "CALL_FUNCTION_VAR":
-                varargs = True
-            elif bcode == "CALL_FUNCTION_KW":
-                doublestar = True
-            elif bcode == "CALL_FUNCTION_VAR_KW":
-                varargs, doublestar = True, True
-            pargs = positional_args(frame, varargs=varargs)
-            kargs = keyword_args(frame, varargs=varargs, doublestar=doublestar)
+            call_stack.append(value_stack.offset)
+            pargs = value_stack.positional_args()
+            kargs = value_stack.keyword_args()
             # Rewrite all callables that may have been passed to the C function.
             rewrite_all(pargs + kargs.values())
             return 'c_call', (function, pargs, kargs)
-        elif call_stack[-1]:
-            call_stack.pop()
-            return 'c_return', stack_bottom(frame)
+        elif call_stack[-1] is not None:
+            offset = call_stack.pop()
+            return 'c_return', get_value_stack(frame)[offset]
         elif bcode.startswith("PRINT_"):
             return 'print', None # TODO
     elif event == 'call':
-        call_stack.append(False)
+        call_stack.append(None)
     # When an exception happens in Python code, 'exception' and 'return' events
     # are reported in succession. Exceptions raised from C functions don't
     # generate the 'return' event, so we have to pop from the stack right away.
-    elif event == 'exception' and call_stack[-1]:
+    elif event == 'exception' and call_stack[-1] is not None:
         call_stack.pop()
     # Python functions always generate a 'return' event, even when an exception
     # has been raised, so let's just check for that.
