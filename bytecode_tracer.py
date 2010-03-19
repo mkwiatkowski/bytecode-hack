@@ -1,4 +1,6 @@
 import opcode
+import re
+
 from types import CodeType
 
 from py_frame_object import get_value_stack
@@ -159,6 +161,8 @@ def rewrite_lnotab(code):
     Based on Ned Batchelder's hackpyc.py:
       http://nedbatchelder.com/blog/200804/wicked_hack_python_bytecode_tracing.html
     """
+    if has_been_rewritten(code):
+        return
     n_bytes = len(code.co_code)
     new_lnotab = "\x01\x01" * (n_bytes-1)
     new_consts = []
@@ -179,3 +183,16 @@ def rewrite_all(objects):
     for obj in objects:
         if hasattr(obj, 'func_code'):
             rewrite_function(obj)
+
+def has_been_rewritten(code):
+    """Return True if the code has been rewritten by rewrite_lnotab already.
+
+    >>> def fun():
+    ...     pass
+    >>> has_been_rewritten(fun.func_code)
+    False
+    >>> rewrite_function(fun)
+    >>> has_been_rewritten(fun.func_code)
+    True
+    """
+    return re.match(r"\A(\x01\x01)+\Z", code.co_lnotab) is not None

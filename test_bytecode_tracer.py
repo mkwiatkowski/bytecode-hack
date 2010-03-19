@@ -251,6 +251,17 @@ class TestBytecodeTracerAutomaticRewriting(TestBytecodeTracer):
                           ('c_return', 1),
                           ('c_return', [1, 0, 1]))
 
+    def test_rewrites_each_function_only_once(self):
+        def other():
+            pass
+        def fun():
+            other()
+            other()
+        rewrite_function(other)
+        rewritten_code = other.func_code
+        self.trace_function(fun)
+        assert other.func_code is rewritten_code
+
 class TestRewriteFunction:
     def test_handles_functions_with_free_variables(self):
         x = 1
