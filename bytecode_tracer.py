@@ -25,7 +25,7 @@ class ValueStack(object):
             pass
 
         self.offset = 0
-        if not callable(self.stack[0]): # TODO
+        if self.stack[0] is None:
             self.offset = 1
 
         self.args_start = self.offset + 1
