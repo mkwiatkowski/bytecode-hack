@@ -7,20 +7,59 @@ from py_frame_object import get_value_stack
 
 
 class ValueStack(object):
+    """CPython stack that holds values used and generated during computation.
+
+    Right before a function call value stack looks like this:
+
+        +---------------------  <--- frame.f_valuestack
+        | function object
+        +----------
+        | ...
+        | list of positional arguments
+        | ...
+        +----------
+        | ...
+        | flat list of keyword arguments (key-value pairs)
+        | ...
+        +----------
+        | *varargs tuple
+        +----------
+        | **kwargs dictionary
+        +---------------------  <--- frame.f_stacktop
+
+    When a function is called with no arguments, the function object is at the
+    top of the stack. When arguments are present, they are placed above the
+    function object. Two bytes after the CALL_FUNCTION bytecode contain number
+    of positional and keyword arguments passed (see `unpack_CALL_FUNCTION` for
+    details). Bytecode number tells us whether a call included single star
+    (*args) and/or double star (**kwargs) arguments.
+
+    Normally, to get to the interesting values at the stack, we would look at it
+    from the top. Unfortunatelly, CPython clears f_stacktop when the frame is
+    activated. This means we have to look at the stack from the bottom and
+    figure out how many objects to skip. For example, before the function call,
+    if we want to read the arguments, we only have to skip the function
+    object. After a function return, the return value is the only element on
+    stack, so there's no need to skip anything.
+
+    Situation changes when a 'finally' block is entered - the bottom of the
+    stack contains None, and we have to remember to skip it both before function
+    calls and returns that happen inside that block. This heuristic of getting
+    to the top of the stack is hopefully correct, but there always may be some
+    corner cases I didn't think of.
+    """
     def __init__(self, frame):
         self.stack = get_value_stack(frame)
-        self.frame = frame
 
         try:
             bcode, self.positional_args_count, self.keyword_args_count = unpack_CALL_FUNCTION(frame)
             self.args_count = self.positional_args_count + 2*self.keyword_args_count
-            self.varargs, self.doublestar = False, False
-            if bcode == "CALL_FUNCTION_VAR":
-                self.varargs = True
-            elif bcode == "CALL_FUNCTION_KW":
-                self.doublestar = True
-            elif bcode == "CALL_FUNCTION_VAR_KW":
-                self.varargs, self.doublestar = True, True
+            # There are four bytecodes for function calls, that tell use whether
+            # single star (*args) and/or double star (**kwargs) notation was
+            # used: CALL_FUNCTION, CALL_FUNCTION_VAR, CALL_FUNCTION_KW
+            # and CALL_FUNCTION_VAR_KW.
+            self.singlestar = "_VAR" in bcode
+            self.doublestar = "_KW" in bcode
         except ValueError:
             pass
 
@@ -41,8 +80,8 @@ class ValueStack(object):
     def positional_args(self):
         """List of all positional arguments passed to a C function.
         """
-        args = list(self.positional_args_from_stack())
-        if self.varargs:
+        args = self.positional_args_from_stack()[:]
+        if self.singlestar:
             args.extend(self.positional_args_from_varargs())
         return args
 
@@ -60,11 +99,9 @@ class ValueStack(object):
     def keyword_args(self):
         """Dictionary of all keyword arguments passed to a C function.
         """
+        kwds = self.keyword_args_from_stack().copy()
         if self.doublestar:
-            kwds = self.keyword_args_from_double_star().copy()
-        else:
-            kwds = {}
-        kwds.update(self.keyword_args_from_stack())
+            kwds.update(self.keyword_args_from_double_star())
         return kwds
 
     def keyword_args_from_stack(self):
@@ -77,14 +114,14 @@ class ValueStack(object):
     def keyword_args_from_double_star(self):
         """Dictionary passed as "**kwds".
         """
-        if self.varargs:
+        if self.singlestar:
             return self.stack_above_args(offset=1)
         else:
             return self.stack_above_args()
 
     def stack_above_args(self, offset=0):
         """For functions with *varargs and **kwargs will contain a tuple and/or
-        a dictionary. It is an error to access it for other functions.
+        a dictionary. It is an error to access it for other function calls.
         """
         i = self.args_start + self.args_count + offset
         return self.stack[i]
@@ -92,10 +129,6 @@ class ValueStack(object):
 
 def flatlist_to_dict(alist):
     return dict(zip(alist[::2], alist[1::2]))
-
-def current_bytecode(frame):
-    code = frame.f_code.co_code[frame.f_lasti]
-    return opcode.opname[ord(code)]
 
 def unpack_CALL_FUNCTION(frame):
     """Number of arguments placed on stack is encoded as two bytes after
@@ -105,6 +138,10 @@ def unpack_CALL_FUNCTION(frame):
     name = opcode.opname[ord(code[0])]
     if name.startswith("CALL_FUNCTION"):
         return name, ord(code[1]), ord(code[2])
+
+def current_bytecode(frame):
+    code = frame.f_code.co_code[frame.f_lasti]
+    return opcode.opname[ord(code)]
 
 def is_c_func(func):
     """Return True if given function object was implemented in C,
