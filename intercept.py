@@ -57,7 +57,7 @@ def dothat():
 
 def doloop():
     chr(90)
-    for x in xrange(10):
+    for x in xrange(sum([1,2,3,5]) + 0):
         if x < 3:
             continue
         if x > 8:
