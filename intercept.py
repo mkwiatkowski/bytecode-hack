@@ -2,13 +2,14 @@ import dis
 import inspect
 import sys
 
-from bytecode_tracer import btrace
+from bytecode_tracer import BytecodeTracer
 from bytecode_tracer import rewrite_function
 
 
+btracer = BytecodeTracer()
 def trace(frame, event, arg):
     try:
-        ev, rest = btrace(frame, event)
+        ev, rest = btracer.trace(frame, event)
         if ev == 'c_call':
             func, pargs, kargs = rest
             print "C_CALL", func.__name__, repr(pargs), repr(kargs)

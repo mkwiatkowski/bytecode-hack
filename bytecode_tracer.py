@@ -161,55 +161,58 @@ def is_c_func(func):
     """
     return not hasattr(func, 'func_code')
 
-call_stack = []
-def btrace(frame, event):
-    """Tries to recognize the current event in terms of calls to and returns
-    from C.
+class BytecodeTracer(object):
+    def __init__(self):
+        self.call_stack = []
 
-    Currently supported events:
-     * ('c_call', (function, positional_arguments, keyword_arguments))
-       A call to a C function with given arguments is about to happen.
-     * ('c_return', return_value)
-       A C function returned with given value (it will always be the function
-       for the most recent 'c_call' event.
-     * ('print', None)
-       A print statement is about to be executed.
+    def trace(self, frame, event):
+        """Tries to recognize the current event in terms of calls to and returns
+        from C.
 
-    In other cases, None is returned.
-    """
-    if event == 'line':
-        bcode = current_bytecode(frame)
-        if bcode.startswith("CALL_FUNCTION"):
-            value_stack = ValueStack(frame)
-            function = value_stack.bottom()
-            # Python functions are handled by the standard trace mechanism, but
-            # we have to make sure any C calls the function makes can be traced
-            # by us later, so we rewrite its bytecode.
-            if not is_c_func(function):
-                rewrite_function(function)
-                return
-            call_stack.append(value_stack.offset)
-            pargs = value_stack.positional_args()
-            kargs = value_stack.keyword_args()
-            # Rewrite all callables that may have been passed to the C function.
-            rewrite_all(pargs + kargs.values())
-            return 'c_call', (function, pargs, kargs)
-        elif call_stack[-1] is not None:
-            offset = call_stack.pop()
-            return 'c_return', get_value_stack(frame)[offset]
-        elif bcode.startswith("PRINT_"):
-            return 'print', None # TODO
-    elif event == 'call':
-        call_stack.append(None)
-    # When an exception happens in Python code, 'exception' and 'return' events
-    # are reported in succession. Exceptions raised from C functions don't
-    # generate the 'return' event, so we have to pop from the stack right away.
-    elif event == 'exception' and call_stack[-1] is not None:
-        call_stack.pop()
-    # Python functions always generate a 'return' event, even when an exception
-    # has been raised, so let's just check for that.
-    elif event == 'return':
-        call_stack.pop()
+        Currently supported events:
+         * ('c_call', (function, positional_arguments, keyword_arguments))
+           A call to a C function with given arguments is about to happen.
+         * ('c_return', return_value)
+           A C function returned with given value (it will always be the function
+           for the most recent 'c_call' event.
+         * ('print', None)
+           A print statement is about to be executed.
+
+        In other cases, None is returned.
+        """
+        if event == 'line':
+            bcode = current_bytecode(frame)
+            if bcode.startswith("CALL_FUNCTION"):
+                value_stack = ValueStack(frame)
+                function = value_stack.bottom()
+                # Python functions are handled by the standard trace mechanism, but
+                # we have to make sure any C calls the function makes can be traced
+                # by us later, so we rewrite its bytecode.
+                if not is_c_func(function):
+                    rewrite_function(function)
+                    return
+                self.call_stack.append(value_stack.offset)
+                pargs = value_stack.positional_args()
+                kargs = value_stack.keyword_args()
+                # Rewrite all callables that may have been passed to the C function.
+                rewrite_all(pargs + kargs.values())
+                return 'c_call', (function, pargs, kargs)
+            elif self.call_stack[-1] is not None:
+                offset = self.call_stack.pop()
+                return 'c_return', get_value_stack(frame)[offset]
+            elif bcode.startswith("PRINT_"):
+                return 'print', None # TODO
+        elif event == 'call':
+            self.call_stack.append(None)
+        # When an exception happens in Python code, 'exception' and 'return' events
+        # are reported in succession. Exceptions raised from C functions don't
+        # generate the 'return' event, so we have to pop from the stack right away.
+        elif event == 'exception' and self.call_stack[-1] is not None:
+            self.call_stack.pop()
+        # Python functions always generate a 'return' event, even when an exception
+        # has been raised, so let's just check for that.
+        elif event == 'return':
+            self.call_stack.pop()
 
 def rewrite_lnotab(code):
     """Replace a code object's line number information to claim that every

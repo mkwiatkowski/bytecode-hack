@@ -3,18 +3,19 @@ import sys
 
 from nose.tools import assert_equal
 
-from bytecode_tracer import btrace, rewrite_function
+from bytecode_tracer import BytecodeTracer, rewrite_function
 
 
 return_value = None
 class TestBytecodeTracer:
     def setup(self):
         self._traces = []
+        self.btracer = BytecodeTracer()
 
     def _trace(self, frame, event, arg):
         try:
             if arg is not sys.settrace:
-                ret = btrace(frame, event)
+                ret = self.btracer.trace(frame, event)
                 if ret is not None and ret[0] is not None:
                     self._traces.append(ret)
         except TypeError:
