@@ -58,7 +58,7 @@ def dothat():
 
 def doloop():
     chr(90)
-    for x in xrange(sum([1,2,3,5]) + 0):
+    for x in xrange(10):
         if x < 3:
             continue
         if x > 8:
@@ -68,14 +68,17 @@ def doloop():
         complex(2, 3)
     complex(1, 2)
 
+def dochain():
+    xrange(sum([1,2,3,5]) + 0)
+
 ######################################################################
 
-print dis.dis(doloop)
+print dis.dis(dochain)
 
-rewrite_function(doloop)
+rewrite_function(dochain)
 
 sys.settrace(trace)
 try:
-    doloop()
+    dochain()
 finally:
     sys.settrace(None)

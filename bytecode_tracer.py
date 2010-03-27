@@ -30,9 +30,8 @@ class ValueStack(object):
     When a function is called with no arguments, the function object is at the
     top of the stack. When arguments are present, they are placed above the
     function object. Two bytes after the CALL_FUNCTION bytecode contain number
-    of positional and keyword arguments passed (see `unpack_CALL_FUNCTION` for
-    details). Bytecode number tells us whether a call included single star
-    (*args) and/or double star (**kwargs) arguments.
+    of positional and keyword arguments passed. Bytecode number tells us whether
+    a call included single star (*args) and/or double star (**kwargs) arguments.
 
     Normally, to get to the interesting values at the stack, we would look at it
     from the top. Unfortunatelly, CPython clears f_stacktop when the frame is
@@ -51,24 +50,28 @@ class ValueStack(object):
     hopefully correct, but there always may be some corner cases I didn't
     think of.
     """
-    def __init__(self, frame):
+    def __init__(self, frame, stack_size):
+        print "*** %s: stack size: %d" % (frame, stack_size)
         self.stack = get_value_stack(frame)
 
-        try:
-            bcode, self.positional_args_count, self.keyword_args_count = unpack_CALL_FUNCTION(frame)
-            self.args_count = self.positional_args_count + 2*self.keyword_args_count
-            # There are four bytecodes for function calls, that tell use whether
-            # single star (*args) and/or double star (**kwargs) notation was
-            # used: CALL_FUNCTION, CALL_FUNCTION_VAR, CALL_FUNCTION_KW
-            # and CALL_FUNCTION_VAR_KW.
-            self.singlestar = "_VAR" in bcode
-            self.doublestar = "_KW" in bcode
-        except ValueError:
-            pass
+        bcode = current_bytecode(frame)
+        assert bcode.name.startswith("CALL_FUNCTION")
 
-        self.offset = 0
-        if not callable(self.stack[0]):
-            self.offset = 1
+        self.positional_args_count = bcode.arg1
+        self.keyword_args_count = bcode.arg2
+        self.args_count = self.positional_args_count + 2*self.keyword_args_count
+
+        # There are four bytecodes for function calls, that tell use whether
+        # single star (*args) and/or double star (**kwargs) notation was
+        # used: CALL_FUNCTION, CALL_FUNCTION_VAR, CALL_FUNCTION_KW
+        # and CALL_FUNCTION_VAR_KW.
+        self.singlestar = "_VAR" in bcode.name
+        self.doublestar = "_KW" in bcode.name
+
+        # We're interested in the function pointer and the arguments, so we
+        # count that many steps from the top.
+        # TODO: subtract one for singlestart and doublestart as well
+        self.offset = stack_size - self.args_count - 1
 
         self.args_start = self.offset + 1
 
@@ -133,18 +136,14 @@ class ValueStack(object):
 def flatlist_to_dict(alist):
     return dict(zip(alist[::2], alist[1::2]))
 
-def unpack_CALL_FUNCTION(frame):
-    """Number of arguments placed on stack is encoded as two bytes after
-    the CALL_FUNCTION bytecode.
-    """
-    code = frame.f_code.co_code[frame.f_lasti:]
-    name = opcode.opname[ord(code[0])]
-    if name.startswith("CALL_FUNCTION"):
-        return name, ord(code[1]), ord(code[2])
-
 def current_bytecode(frame):
-    code = frame.f_code.co_code[frame.f_lasti]
-    return opcode.opname[ord(code)]
+    code = frame.f_code.co_code[frame.f_lasti:]
+    op = ord(code[0])
+    name = opcode.opname[op]
+    if op >= opcode.HAVE_ARGUMENT:
+        return Bytecode(name=name, arg1=ord(code[1]), arg2=ord(code[2]))
+    else:
+        return Bytecode(name=name)
 
 def is_c_func(func):
     """Return True if given function object was implemented in C,
@@ -161,9 +160,47 @@ def is_c_func(func):
     """
     return not hasattr(func, 'func_code')
 
+class Bytecode(object):
+    def __init__(self, name, arg1=None, arg2=None):
+        self.name = name
+        self.arg1 = arg1
+        self.arg2 = arg2
+        try:
+            self.arg = arg1 + arg2*256
+        except TypeError:
+            self.arg = None
+
+        if name == 'BUILD_LIST':
+            self.stack_effect = 1 - self.arg
+        elif name.startswith('CALL_FUNCTION'):
+            self.stack_effect = -(arg1 + 2*arg2)
+            if '_VAR' in name:
+                self.stack_effect -= 1
+            if '_KW' in name:
+                self.stack_effect -= 1
+        else:
+            opcode_stack_effect = {
+                'LOAD_GLOBAL': 1,
+                'LOAD_CONST': 1,
+                'BINARY_ADD': -1,
+            }
+            self.stack_effect = opcode_stack_effect.get(name, 0)
+
 class BytecodeTracer(object):
+    """A tracer that keeps track of calls and the value stack of each frame.
+
+    `value_stack_sizes` attribute maps frames to sizes of their value stacks.
+    This is a workaround for frames not having an exposed f_stacktop.
+    """
     def __init__(self):
         self.call_stack = []
+        self.value_stack_sizes = {}
+
+    def update_value_stack_depth(self, bcode, frame):
+        self.value_stack_sizes[frame] = self.value_stack_sizes.get(frame, 0) + bcode.stack_effect
+
+    def get_value_stack_for(self, frame):
+        return ValueStack(frame, self.value_stack_sizes[frame])
 
     def trace(self, frame, event):
         """Tries to recognize the current event in terms of calls to and returns
@@ -182,8 +219,8 @@ class BytecodeTracer(object):
         """
         if event == 'line':
             bcode = current_bytecode(frame)
-            if bcode.startswith("CALL_FUNCTION"):
-                value_stack = ValueStack(frame)
+            if bcode.name.startswith("CALL_FUNCTION"):
+                value_stack = self.get_value_stack_for(frame)
                 function = value_stack.bottom()
                 # Python functions are handled by the standard trace mechanism, but
                 # we have to make sure any C calls the function makes can be traced
@@ -200,8 +237,10 @@ class BytecodeTracer(object):
             elif self.call_stack[-1] is not None:
                 offset = self.call_stack.pop()
                 return 'c_return', get_value_stack(frame)[offset]
-            elif bcode.startswith("PRINT_"):
+            elif bcode.name.startswith("PRINT_"):
                 return 'print', None # TODO
+            # Value stack size may change after the bytecode is executed.
+            self.update_value_stack_depth(bcode, frame)
         elif event == 'call':
             self.call_stack.append(None)
         # When an exception happens in Python code, 'exception' and 'return' events
