@@ -118,18 +118,15 @@ class Bytecode(object):
         self.arg1 = arg1
         self.arg2 = arg2
 
-def pop_first_bytecode(code):
-    op = ord(code.pop(0))
+def current_bytecode(frame):
+    code = frame.f_code.co_code[frame.f_lasti:]
+    op = ord(code[0])
     name = opcode.opname[op]
     arg1, arg2 = None, None
     if op >= opcode.HAVE_ARGUMENT:
-        arg1 = ord(code.pop(0))
-        arg2 = ord(code.pop(0))
+        arg1 = ord(code[1])
+        arg2 = ord(code[2])
     return Bytecode(name=name, arg1=arg1, arg2=arg2)
-
-def current_bytecode(frame):
-    code = list(frame.f_code.co_code[frame.f_lasti:])
-    return pop_first_bytecode(code)
 
 def is_c_func(func):
     """Return True if given function object was implemented in C,
