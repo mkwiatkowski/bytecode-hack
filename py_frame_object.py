@@ -37,3 +37,6 @@ def _frame_internals(frame):
 
 def get_value_stack(frame):
     return _frame_internals(frame).f_valuestack
+
+def get_value_stack_top(frame):
+    return _frame_internals(frame).f_stacktop

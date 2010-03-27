@@ -3,7 +3,7 @@ import re
 
 from types import CodeType
 
-from py_frame_object import get_value_stack
+from py_frame_object import get_value_stack_top
 
 
 class ValueStack(object):
@@ -33,30 +33,15 @@ class ValueStack(object):
     of positional and keyword arguments passed. Bytecode number tells us whether
     a call included single star (*args) and/or double star (**kwargs) arguments.
 
-    Normally, to get to the interesting values at the stack, we would look at it
-    from the top. Unfortunatelly, CPython clears f_stacktop when the frame is
-    activated. This means we have to look at the stack from the bottom and
-    figure out how many objects to skip. For example, before the function call,
-    if we want to read the arguments, we only have to skip the function
-    object. After a function return, the return value is the only element on
-    stack, so there's no need to skip anything.
-
-    Situation changes when a 'finally' block is entered - the bottom of the
-    stack contains None, and we have to remember to skip it both before function
-    calls and returns that happen inside that block.
-
-    Similar thing happens during a 'for' loop. Bottom of the stack contains
-    an iterator object. This heuristic of getting to the top of the stack is
-    hopefully correct, but there always may be some corner cases I didn't
-    think of.
+    To get to the values at the stack we look at it from the top, from
+    frame.f_stacktop downwards. Since f_stacktop points at the memory right
+    after the last value, all offsets have to be negative. For example,
+    frame.f_stacktop[-1] is an object at the top of the value stack.
     """
-    def __init__(self, frame, stack_size):
-        print "*** %s: stack size: %d" % (frame, stack_size)
-        self.stack = get_value_stack(frame)
-
-        bcode = current_bytecode(frame)
+    def __init__(self, frame, bcode):
         assert bcode.name.startswith("CALL_FUNCTION")
 
+        self.stack = get_value_stack_top(frame)
         self.positional_args_count = bcode.arg1
         self.keyword_args_count = bcode.arg2
         self.args_count = self.positional_args_count + 2*self.keyword_args_count
@@ -68,20 +53,13 @@ class ValueStack(object):
         self.singlestar = "_VAR" in bcode.name
         self.doublestar = "_KW" in bcode.name
 
-        # We're interested in the function pointer and the arguments, so we
-        # count that many steps from the top.
-        # TODO: subtract one for singlestart and doublestart as well
-        self.offset = stack_size - self.args_count - 1
-
-        self.args_start = self.offset + 1
-
     def bottom(self):
         """The first object at the value stack.
 
-        It's the function being called for CALL_FUNCTION_* bytecodes and a return
-        value right after the function returns.
+        It's the function being called for all CALL_FUNCTION_* bytecodes.
         """
-        return self.stack[self.offset]
+        offset = 1 + self.args_count + self.singlestar + self.doublestar
+        return self.stack[-offset]
 
     def positional_args(self):
         """List of all positional arguments passed to a C function.
@@ -91,16 +69,24 @@ class ValueStack(object):
             args.extend(self.positional_args_from_varargs())
         return args
 
+    def values(self, offset, count):
+        """Return a list of `count` values from stack starting at `offset`.
+        """
+        def v():
+            for i in range(-offset, -offset + count):
+                yield self.stack[i]
+        return list(v())
+
     def positional_args_from_stack(self):
         """Objects explicitly placed on stack as positional arguments.
         """
-        positional_start = self.args_start
-        return self.stack[positional_start:positional_start+self.positional_args_count]
+        offset = self.args_count + self.singlestar + self.doublestar
+        return self.values(offset, self.positional_args_count)
 
     def positional_args_from_varargs(self):
         """Iterable placed on stack as "*args".
         """
-        return self.stack_above_args()
+        return self.stack[-1 - self.doublestar]
 
     def keyword_args(self):
         """Dictionary of all keyword arguments passed to a C function.
@@ -113,37 +99,37 @@ class ValueStack(object):
     def keyword_args_from_stack(self):
         """Key/value pairs placed explicitly on stack as keyword arguments.
         """
-        keywords_start = self.args_start + self.positional_args_count
-        args = self.stack[keywords_start:keywords_start+2*self.keyword_args_count]
+        offset = 2*self.keyword_args_count + self.singlestar + self.doublestar
+        args = self.values(offset, 2*self.keyword_args_count)
         return flatlist_to_dict(args)
 
     def keyword_args_from_double_star(self):
         """Dictionary passed as "**kwds".
         """
-        if self.singlestar:
-            return self.stack_above_args(offset=1)
-        else:
-            return self.stack_above_args()
-
-    def stack_above_args(self, offset=0):
-        """For functions with *varargs and **kwargs will contain a tuple and/or
-        a dictionary. It is an error to access it for other function calls.
-        """
-        i = self.args_start + self.args_count + offset
-        return self.stack[i]
+        return self.stack[-1]
 
 
 def flatlist_to_dict(alist):
     return dict(zip(alist[::2], alist[1::2]))
 
-def current_bytecode(frame):
-    code = frame.f_code.co_code[frame.f_lasti:]
-    op = ord(code[0])
+class Bytecode(object):
+    def __init__(self, name, arg1=None, arg2=None):
+        self.name = name
+        self.arg1 = arg1
+        self.arg2 = arg2
+
+def pop_first_bytecode(code):
+    op = ord(code.pop(0))
     name = opcode.opname[op]
+    arg1, arg2 = None, None
     if op >= opcode.HAVE_ARGUMENT:
-        return Bytecode(name=name, arg1=ord(code[1]), arg2=ord(code[2]))
-    else:
-        return Bytecode(name=name)
+        arg1 = ord(code.pop(0))
+        arg2 = ord(code.pop(0))
+    return Bytecode(name=name, arg1=arg1, arg2=arg2)
+
+def current_bytecode(frame):
+    code = list(frame.f_code.co_code[frame.f_lasti:])
+    return pop_first_bytecode(code)
 
 def is_c_func(func):
     """Return True if given function object was implemented in C,
@@ -160,47 +146,12 @@ def is_c_func(func):
     """
     return not hasattr(func, 'func_code')
 
-class Bytecode(object):
-    def __init__(self, name, arg1=None, arg2=None):
-        self.name = name
-        self.arg1 = arg1
-        self.arg2 = arg2
-        try:
-            self.arg = arg1 + arg2*256
-        except TypeError:
-            self.arg = None
-
-        if name == 'BUILD_LIST':
-            self.stack_effect = 1 - self.arg
-        elif name.startswith('CALL_FUNCTION'):
-            self.stack_effect = -(arg1 + 2*arg2)
-            if '_VAR' in name:
-                self.stack_effect -= 1
-            if '_KW' in name:
-                self.stack_effect -= 1
-        else:
-            opcode_stack_effect = {
-                'LOAD_GLOBAL': 1,
-                'LOAD_CONST': 1,
-                'BINARY_ADD': -1,
-            }
-            self.stack_effect = opcode_stack_effect.get(name, 0)
 
 class BytecodeTracer(object):
-    """A tracer that keeps track of calls and the value stack of each frame.
-
-    `value_stack_sizes` attribute maps frames to sizes of their value stacks.
-    This is a workaround for frames not having an exposed f_stacktop.
-    """
     def __init__(self):
+        # Will contain False for calls to Python functions and True for calls to
+        # C functions.
         self.call_stack = []
-        self.value_stack_sizes = {}
-
-    def update_value_stack_depth(self, bcode, frame):
-        self.value_stack_sizes[frame] = self.value_stack_sizes.get(frame, 0) + bcode.stack_effect
-
-    def get_value_stack_for(self, frame):
-        return ValueStack(frame, self.value_stack_sizes[frame])
 
     def trace(self, frame, event):
         """Tries to recognize the current event in terms of calls to and returns
@@ -220,7 +171,7 @@ class BytecodeTracer(object):
         if event == 'line':
             bcode = current_bytecode(frame)
             if bcode.name.startswith("CALL_FUNCTION"):
-                value_stack = self.get_value_stack_for(frame)
+                value_stack = ValueStack(frame, bcode)
                 function = value_stack.bottom()
                 # Python functions are handled by the standard trace mechanism, but
                 # we have to make sure any C calls the function makes can be traced
@@ -228,25 +179,23 @@ class BytecodeTracer(object):
                 if not is_c_func(function):
                     rewrite_function(function)
                     return
-                self.call_stack.append(value_stack.offset)
+                self.call_stack.append(True)
                 pargs = value_stack.positional_args()
                 kargs = value_stack.keyword_args()
                 # Rewrite all callables that may have been passed to the C function.
                 rewrite_all(pargs + kargs.values())
                 return 'c_call', (function, pargs, kargs)
-            elif self.call_stack[-1] is not None:
-                offset = self.call_stack.pop()
-                return 'c_return', get_value_stack(frame)[offset]
+            elif self.call_stack[-1]:
+                self.call_stack.pop()
+                return 'c_return', get_value_stack_top(frame)[-1]
             elif bcode.name.startswith("PRINT_"):
                 return 'print', None # TODO
-            # Value stack size may change after the bytecode is executed.
-            self.update_value_stack_depth(bcode, frame)
         elif event == 'call':
-            self.call_stack.append(None)
+            self.call_stack.append(False)
         # When an exception happens in Python code, 'exception' and 'return' events
         # are reported in succession. Exceptions raised from C functions don't
         # generate the 'return' event, so we have to pop from the stack right away.
-        elif event == 'exception' and self.call_stack[-1] is not None:
+        elif event == 'exception' and self.call_stack[-1]:
             self.call_stack.pop()
         # Python functions always generate a 'return' event, even when an exception
         # has been raised, so let's just check for that.
