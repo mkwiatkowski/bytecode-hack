@@ -9,14 +9,14 @@ from bytecode_tracer import rewrite_function
 btracer = BytecodeTracer()
 def trace(frame, event, arg):
     try:
-        ev, rest = btracer.trace(frame, event)
-        if ev == 'c_call':
-            func, pargs, kargs = rest
-            print "C_CALL", func.__name__, repr(pargs), repr(kargs)
-        elif ev == 'c_return':
-            print "C_RETURN", repr(rest)
-        elif ev == 'print':
-            print "PRINT"
+        for ev, rest in btracer.trace(frame, event):
+            if ev == 'c_call':
+                func, pargs, kargs = rest
+                print "C_CALL", func.__name__, repr(pargs), repr(kargs)
+            elif ev == 'c_return':
+                print "C_RETURN", repr(rest)
+            elif ev == 'print':
+                print "PRINT"
     except TypeError:
         if event == 'call':
             print "CALL", frame.f_code.co_name, inspect.getargvalues(frame)

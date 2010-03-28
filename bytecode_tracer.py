@@ -163,9 +163,16 @@ class BytecodeTracer(object):
          * ('print', None)
            A print statement is about to be executed.
 
-        In other cases, None is returned.
+        It is a generator and it yields a sequence of events, as a single
+        bytecode may generate more than one event. Canonical example is
+        a sequence of CALL_FUNCTION bytecodes. Execution of the first bytecode
+        causes a 'c_call' event. Execution of the second bytecode causes two
+        consecutive events: 'c_return' and another 'c_call'.
         """
         if event == 'line':
+            if self.call_stack[-1]:
+                self.call_stack.pop()
+                yield 'c_return', get_value_stack_top(frame)[-1]
             bcode = current_bytecode(frame)
             if bcode.name.startswith("CALL_FUNCTION"):
                 value_stack = ValueStack(frame, bcode)
@@ -181,12 +188,9 @@ class BytecodeTracer(object):
                 kargs = value_stack.keyword_args()
                 # Rewrite all callables that may have been passed to the C function.
                 rewrite_all(pargs + kargs.values())
-                return 'c_call', (function, pargs, kargs)
-            elif self.call_stack[-1]:
-                self.call_stack.pop()
-                return 'c_return', get_value_stack_top(frame)[-1]
+                yield 'c_call', (function, pargs, kargs)
             elif bcode.name.startswith("PRINT_"):
-                return 'print', None # TODO
+                yield 'print', None # TODO
         elif event == 'call':
             self.call_stack.append(False)
         # When an exception happens in Python code, 'exception' and 'return' events

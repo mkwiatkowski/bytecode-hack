@@ -15,9 +15,9 @@ class TestBytecodeTracer:
     def _trace(self, frame, event, arg):
         try:
             if arg is not sys.settrace:
-                ret = self.btracer.trace(frame, event)
-                if ret is not None and ret[0] is not None:
-                    self._traces.append(ret)
+                for ret in self.btracer.trace(frame, event):
+                    if ret[0] is not None:
+                        self._traces.append(ret)
         except TypeError:
             pass
         return self._trace
@@ -181,7 +181,7 @@ class TestBytecodeTracerReturnValues(TestBytecodeTracer):
         self.assert_trace(('c_call', (coerce, [1, 1.25], {})),
                           ('c_return', (1.0, 1.25)))
 
-class TestBytecodeTracerLanguageConsructs(TestBytecodeTracer):
+class TestBytecodeTracerLanguageConstructs(TestBytecodeTracer):
     def test_traces_for_loop(self):
         def fun():
             for x in range(3):
@@ -215,6 +215,17 @@ class TestBytecodeTracerLanguageConsructs(TestBytecodeTracer):
                           ('c_return', 'e'),
                           ('c_call', (complex, [2, 3], {})),
                           ('c_return', complex(2, 3)))
+
+    def test_tracers_chained_calls(self):
+        def fun():
+            complex(sum(range(1,11)), 3)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', (range, [1, 11], {})),
+                          ('c_return', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+                          ('c_call', (sum, [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]], {})),
+                          ('c_return', 55),
+                          ('c_call', (complex, [55, 3], {})),
+                          ('c_return', complex(55, 3)))
 
 class TestBytecodeTracerWithExceptions(TestBytecodeTracer):
     def test_keeps_tracing_properly_after_an_exception(self):
