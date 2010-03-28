@@ -216,7 +216,7 @@ class TestBytecodeTracerLanguageConstructs(TestBytecodeTracer):
                           ('c_call', (complex, [2, 3], {})),
                           ('c_return', complex(2, 3)))
 
-    def test_tracers_chained_calls(self):
+    def test_traces_chained_calls(self):
         def fun():
             complex(sum(range(1,11)), 3)
         self.trace_function(fun)
@@ -226,6 +226,15 @@ class TestBytecodeTracerLanguageConstructs(TestBytecodeTracer):
                           ('c_return', 55),
                           ('c_call', (complex, [55, 3], {})),
                           ('c_return', complex(55, 3)))
+
+    def test_traces_chained_calls_with_extra_computation(self):
+        def fun():
+            range(sum([1, 2]) + 3)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', (sum, [[1, 2]], {})),
+                          ('c_return', 3),
+                          ('c_call', (range, [6], {})),
+                          ('c_return', [0, 1, 2, 3, 4, 5]))
 
 class TestBytecodeTracerWithExceptions(TestBytecodeTracer):
     def test_keeps_tracing_properly_after_an_exception(self):
