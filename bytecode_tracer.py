@@ -172,7 +172,13 @@ class BytecodeTracer(object):
         if event == 'line':
             if self.call_stack[-1]:
                 self.call_stack.pop()
-                yield 'c_return', get_value_stack_top(frame)[-1]
+                stack = get_value_stack_top(frame)
+                # Rewrite a code object each time it is returned by some
+                # C function. Most commonly that will be the 'compile' function.
+                # TODO: Make sure the old code is garbage collected.
+                if type(stack[-1]) is CodeType:
+                    stack[-1] = rewrite_lnotab(stack[-1])
+                yield 'c_return', stack[-1]
             bcode = current_bytecode(frame)
             if bcode.name.startswith("CALL_FUNCTION"):
                 value_stack = ValueStack(frame, bcode)

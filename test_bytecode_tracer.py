@@ -1,6 +1,7 @@
 import dis
 import sys
 
+from nose import SkipTest
 from nose.tools import assert_equal
 
 from bytecode_tracer import BytecodeTracer, rewrite_function
@@ -24,6 +25,9 @@ class TestBytecodeTracer:
 
     def assert_trace(self, *traces):
         assert_equal(self._traces, list(traces))
+
+    def assert_trace_slice(self, start, end, *traces):
+        assert_equal(self._traces[start:end], list(traces))
 
     def trace_function(self, fun):
         dis.dis(fun.func_code)
@@ -236,6 +240,18 @@ class TestBytecodeTracerLanguageConstructs(TestBytecodeTracer):
                           ('c_call', (range, [6], {})),
                           ('c_return', [0, 1, 2, 3, 4, 5]))
 
+    def test_traces_with_blocks(self):
+        if sys.version_info < (2, 5):
+            raise SkipTest("with statement was added in Python 2.5")
+        code = "from __future__ import with_statement; import threading; lock = threading.Lock()\nwith lock: chr(102)"
+        def fun():
+            eval(compile(code, '<string>', 'exec'))
+        self.trace_function(fun)
+        # Skip compile, eval, and lock allocation.
+        self.assert_trace_slice(7, -1,
+                                ('c_call', (chr, [102], {})),
+                                ('c_return', 'f'))
+
 class TestBytecodeTracerWithExceptions(TestBytecodeTracer):
     def test_keeps_tracing_properly_after_an_exception(self):
         def fun():
@@ -367,6 +383,19 @@ class TestBytecodeTracerAutomaticRewriting(TestBytecodeTracer):
         rewritten_code = other.func_code
         self.trace_function(fun)
         assert other.func_code is rewritten_code
+
+    def test_rewrites_code_returned_by_compile(self):
+        def fun():
+            global return_value
+            return_value = compile('abs(-1)', '', 'exec')
+            eval(return_value)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', (compile, ['abs(-1)', '', 'exec'], {})),
+                          ('c_return', return_value),
+                          ('c_call', (eval, [return_value], {})),
+                          ('c_call', (abs, [-1], {})),
+                          ('c_return', 1),
+                          ('c_return', None))
 
 class TestRewriteFunction:
     def test_handles_functions_with_free_variables(self):
