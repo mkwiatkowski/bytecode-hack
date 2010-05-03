@@ -71,14 +71,18 @@ def doloop():
 def dochain():
     xrange(sum([1,2,3,5]) + 0)
 
+def doimport():
+    import foo
+    foo.bleh()
+
 ######################################################################
 
-print dis.dis(dochain)
+dis.dis(doimport)
 
-rewrite_function(dochain)
+rewrite_function(doimport)
 
 sys.settrace(trace)
 try:
-    dochain()
+    doimport()
 finally:
     sys.settrace(None)
