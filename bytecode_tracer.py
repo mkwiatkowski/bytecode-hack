@@ -218,7 +218,7 @@ def rewrite_lnotab(code):
       http://nedbatchelder.com/blog/200804/wicked_hack_python_bytecode_tracing.html
     """
     if has_been_rewritten(code):
-        return
+        return code
     n_bytes = len(code.co_code)
     new_lnotab = "\x01\x01" * (n_bytes-1)
     new_consts = []
@@ -252,3 +252,101 @@ def has_been_rewritten(code):
     True
     """
     return re.match(r"\A(\x01\x01)+\Z", code.co_lnotab) is not None
+
+#--------------------------------------------------------------------
+# Taken from Demo/imputil/importers.py
+import imp
+import imputil
+import marshal
+import os
+import struct
+import sys
+
+# byte-compiled file suffic character
+_suffix_char = __debug__ and 'c' or 'o'
+
+# byte-compiled file suffix
+_suffix = '.py' + _suffix_char
+
+# the C_EXTENSION suffixes
+_c_suffixes = filter(lambda x: x[2] == imp.C_EXTENSION, imp.get_suffixes())
+
+def _timestamp(pathname):
+    "Return the file modification time as a Long."
+    try:
+        s = os.stat(pathname)
+    except OSError:
+        return None
+    return long(s[8])
+
+def _compile(path, mtime):
+    f = open(path)
+    c = f.read()
+    f.close()
+    return compile(c, path, 'exec')
+
+def _fs_import(dir, modname, fqname):
+    "Fetch a module from the filesystem."
+
+    pathname = os.path.join(dir, modname)
+    if os.path.isdir(pathname):
+        values = { '__pkgdir__' : pathname, '__path__' : [ pathname ] }
+        ispkg = 1
+        pathname = os.path.join(pathname, '__init__')
+    else:
+        values = { }
+        ispkg = 0
+
+        # look for dynload modules
+        for desc in _c_suffixes:
+            file = pathname + desc[0]
+            try:
+                fp = open(file, desc[1])
+            except IOError:
+                pass
+            else:
+                module = imp.load_module(fqname, fp, file, desc)
+                values['__file__'] = file
+                return 0, module, values
+
+    t_py = _timestamp(pathname + '.py')
+    t_pyc = _timestamp(pathname + _suffix)
+    if t_py is None and t_pyc is None:
+        return None
+    code = None
+    if t_py is None or (t_pyc is not None and t_pyc >= t_py):
+        file = pathname + _suffix
+        f = open(file, 'rb')
+        if f.read(4) == imp.get_magic():
+            t = struct.unpack('<I', f.read(4))[0]
+            if t == t_py:
+                code = marshal.load(f)
+        f.close()
+    if code is None:
+        file = pathname + '.py'
+        code = _compile(file, t_py)
+
+    values['__file__'] = file
+    return ispkg, rewrite_lnotab(code), values
+
+class PathImporter(imputil.Importer):
+    def __init__(self, path=sys.path):
+        self.path = path
+
+    def get_code(self, parent, modname, fqname):
+        if parent:
+            # we are looking for a module inside of a specific package
+            return _fs_import(parent.__pkgdir__, modname, fqname)
+
+        # scan sys.path, looking for the requested module
+        for dir in self.path:
+            if isinstance(dir, str):
+                result = _fs_import(dir, modname, fqname)
+                if result:
+                    return result
+
+        # not found
+        return None
+
+imputil.ImportManager().install()
+sys.path.insert(0, PathImporter())
