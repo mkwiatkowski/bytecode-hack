@@ -150,6 +150,10 @@ class BytecodeTracer(object):
         # C functions.
         self.call_stack = []
 
+    def setup(self):
+        imputil.ImportManager().install()
+        sys.path.insert(0, PathImporter(sys.path))
+
     def trace(self, frame, event):
         """Tries to recognize the current event in terms of calls to and returns
         from C.
@@ -330,7 +334,7 @@ def _fs_import(dir, modname, fqname):
     return ispkg, rewrite_lnotab(code), values
 
 class PathImporter(imputil.Importer):
-    def __init__(self, path=sys.path):
+    def __init__(self, path):
         self.path = path
 
     def get_code(self, parent, modname, fqname):
@@ -347,6 +351,3 @@ class PathImporter(imputil.Importer):
 
         # not found
         return None
-
-imputil.ImportManager().install()
-sys.path.insert(0, PathImporter())

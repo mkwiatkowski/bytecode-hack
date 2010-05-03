@@ -1,8 +1,13 @@
 import dis
+import os
+import shutil
 import sys
+import tempfile
 
 from nose import SkipTest
 from nose.tools import assert_equal
+
+from pythoscope.util import write_content_to_file
 
 from bytecode_tracer import BytecodeTracer, rewrite_function
 
@@ -32,6 +37,7 @@ class TestBytecodeTracer:
     def trace_function(self, fun):
         dis.dis(fun.func_code)
         rewrite_function(fun)
+        self.btracer.setup()
         sys.settrace(self._trace)
         try:
             fun()
@@ -396,6 +402,19 @@ class TestBytecodeTracerAutomaticRewriting(TestBytecodeTracer):
                           ('c_call', (abs, [-1], {})),
                           ('c_return', 1),
                           ('c_return', None))
+
+    def test_rewrites_modules_during_import(self):
+        tmpdir = tempfile.mkdtemp()
+        write_content_to_file("abs(-2)", os.path.join(tmpdir, 'mod.py'))
+        sys.path.insert(0, tmpdir)
+        try:
+            def fun():
+                import mod
+            self.trace_function(fun)
+            self.assert_trace(('c_call', (abs, [-2], {})),
+                              ('c_return', 2))
+        finally:
+            shutil.rmtree(tmpdir)
 
 class TestRewriteFunction:
     def test_handles_functions_with_free_variables(self):

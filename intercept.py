@@ -77,12 +77,14 @@ def doimport():
 
 ######################################################################
 
-dis.dis(doimport)
+if __name__ == '__main__':
+    btracer.setup()
 
-rewrite_function(doimport)
+    dis.dis(doimport)
+    rewrite_function(doimport)
 
-sys.settrace(trace)
-try:
-    doimport()
-finally:
-    sys.settrace(None)
+    sys.settrace(trace)
+    try:
+        doimport()
+    finally:
+        sys.settrace(None)
