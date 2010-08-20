@@ -8,8 +8,9 @@ from bytecode_tracer import rewrite_function
 
 btracer = BytecodeTracer()
 def trace(frame, event, arg):
-    try:
-        for ev, rest in btracer.trace(frame, event):
+    bytecode_events = list(btracer.trace(frame, event))
+    if bytecode_events:
+        for ev, rest in bytecode_events:
             if ev == 'c_call':
                 func, pargs, kargs = rest
                 print "C_CALL", func.__name__, repr(pargs), repr(kargs)
@@ -17,7 +18,7 @@ def trace(frame, event, arg):
                 print "C_RETURN", repr(rest)
             elif ev == 'print':
                 print "PRINT"
-    except TypeError:
+    else:
         if event == 'call':
             print "CALL", frame.f_code.co_name, inspect.getargvalues(frame)
         elif event == 'return':
@@ -75,16 +76,25 @@ def doimport():
     import foo
     foo.bleh()
 
+def doyield():
+    def y():
+        yield 1
+        yield 2
+        yield 3
+    for x in y():
+        chr(x)
+
 ######################################################################
 
 if __name__ == '__main__':
+    f = doit
     btracer.setup()
 
-    dis.dis(doimport)
-    rewrite_function(doimport)
+    dis.dis(f)
+    rewrite_function(f)
 
     sys.settrace(trace)
     try:
-        doimport()
+        f()
     finally:
         sys.settrace(None)
