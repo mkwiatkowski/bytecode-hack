@@ -1,4 +1,5 @@
 import opcode
+import os
 import re
 
 from types import CodeType
@@ -165,7 +166,8 @@ class BytecodeTracer(object):
          * ('c_return', return_value)
            A C function returned with given value (it will always be the function
            for the most recent 'c_call' event.
-         * ('print', None)
+         * ('print', value)
+         * ('print_to', (value, output))
            A print statement is about to be executed.
 
         It is a generator and it yields a sequence of events, as a single
@@ -200,8 +202,17 @@ class BytecodeTracer(object):
                 # Rewrite all callables that may have been passed to the C function.
                 rewrite_all(pargs + kargs.values())
                 yield 'c_call', (function, pargs, kargs)
-            elif bcode.name.startswith("PRINT_"):
-                yield 'print', None # TODO
+            elif bcode.name == "PRINT_NEWLINE":
+                yield 'print', os.linesep
+            elif bcode.name == "PRINT_NEWLINE_TO":
+                stack = get_value_stack_top(frame)
+                yield 'print_to', (os.linesep, stack[-1])
+            elif bcode.name == "PRINT_ITEM":
+                stack = get_value_stack_top(frame)
+                yield 'print', stack[-1]
+            elif bcode.name == "PRINT_ITEM_TO":
+                stack = get_value_stack_top(frame)
+                yield 'print_to', (stack[-2], stack[-1])
         elif event == 'call':
             self.call_stack.append(False)
         # When an exception happens in Python code, 'exception' and 'return' events

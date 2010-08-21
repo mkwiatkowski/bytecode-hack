@@ -345,6 +345,33 @@ class TestBytecodeTracerWithExceptions(TestBytecodeTracer):
         self.assert_trace(('c_call', (complex, [1, 2], {})),
                           ('c_return', complex(1, 2)))
 
+class TestPrint(TestBytecodeTracer):
+    def test_handles_normal_print_with_newline(self):
+        def fun():
+            print "foo"
+        self.trace_function(fun)
+        self.assert_trace(('print', "foo"),
+                          ('print', os.linesep))
+
+    def test_handles_normal_print_without_newline(self):
+        def fun():
+            print "foo",
+        self.trace_function(fun)
+        self.assert_trace(('print', "foo"))
+
+    def test_handles_extended_print_with_newline(self):
+        def fun():
+            print>>sys.stdout, "foo"
+        self.trace_function(fun)
+        self.assert_trace(('print_to', ("foo", sys.stdout)),
+                          ('print_to', (os.linesep, sys.stdout)))
+
+    def test_handles_extended_print_without_newline(self):
+        def fun():
+            print>>sys.stdout, "foo",
+        self.trace_function(fun)
+        self.assert_trace(('print_to', ("foo", sys.stdout)))
+
 class TestBytecodeTracerAutomaticRewriting(TestBytecodeTracer):
     def test_automatically_traces_bytescodes_of_other_callables_being_called(self):
         def other():

@@ -17,10 +17,18 @@ def trace(frame, event, arg):
             elif ev == 'c_return':
                 print "C_RETURN", repr(rest)
             elif ev == 'print':
-                print "PRINT"
+                print "PRINT", repr(rest)
+            elif ev == 'print_to':
+                value, output = rest
+                print "PRINT_TO", repr(value), repr(output)
     else:
         if event == 'call':
-            print "CALL", frame.f_code.co_name, inspect.getargvalues(frame)
+            args = inspect.getargvalues(frame)
+            try:
+                args = str(args)
+            except Exception:
+                args = "<unknown>"
+            print "CALL", frame.f_code.co_name, args
         elif event == 'return':
             print "RETURN", frame.f_code.co_name, repr(arg)
         elif event == 'exception':
@@ -84,10 +92,14 @@ def doyield():
     for x in y():
         chr(x)
 
+def doprint():
+    print 1, 2, 3
+    print>>sys.stderr, 4
+
 ######################################################################
 
 if __name__ == '__main__':
-    f = doit
+    f = doprint
     btracer.setup()
 
     dis.dis(f)
