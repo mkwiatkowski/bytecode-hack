@@ -1,3 +1,4 @@
+import cPickle
 import dis
 import os
 import shutil
@@ -7,6 +8,7 @@ import tempfile
 from nose import SkipTest
 from nose.tools import assert_equal
 
+from pythoscope.store import CodeTree
 from pythoscope.util import write_content_to_file
 
 from bytecode_tracer import BytecodeTracer, rewrite_function
@@ -450,3 +452,15 @@ class TestRewriteFunction:
             return x + 1
         rewrite_function(fun)
         assert_equal(fun(), 2)
+
+class TestImportSupportWithOtherModules(TestBytecodeTracer):
+    def test_support_with_pickle(self):
+        self.btracer.setup()
+        # This can raise any number of exceptions.
+        #
+        # Under Python 2.3 with imputil it will raise
+        #   PicklingError: Can't pickle <class 'pythoscope.store.CodeTree'>: attribute lookup pythoscope.store.CodeTree failed
+        #
+        # Under Python 2.6 with imputil it will raise
+        #   TypeError: _import_hook() takes at most 5 arguments (6 given)
+        cPickle.dumps(CodeTree(None), cPickle.HIGHEST_PROTOCOL)
