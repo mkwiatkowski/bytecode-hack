@@ -148,6 +148,24 @@ def is_c_func(func):
 
 
 class BytecodeTracer(object):
+    """A tracer that goes over each bytecode and reports events that couldn't
+    be traced by other means.
+
+    Usage example:
+        def trace(frame, event, arg):
+            bytecode_events = list(btracer.trace(frame, event))
+            if bytecode_events:
+                for ev, rest in bytecode_events:
+                    pass # Here handle BytecodeTracer events, like 'c_call', 'c_return', 'print' or 'print_to'.
+            else:
+                pass # Here handle the usual tracer events, like 'call', 'return' and 'exception'.
+            return trace
+        sys.settrace(trace)
+        try:
+            pass # Some code to trace... You may need to call rewrite_function first.
+        finally:
+            sys.settrace(None)
+    """
     def __init__(self):
         # Will contain False for calls to Python functions and True for calls to
         # C functions.
