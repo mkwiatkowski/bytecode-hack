@@ -107,8 +107,12 @@ class PathImporter(imputil.Importer):
         # not found
         return None
 
+import_manager = imputil.ImportManager()
 
 def install(callback):
     "Install callback as a code-rewriting function for each imported module."
-    imputil.ImportManager().install()
+    import_manager.install()
     sys.path.insert(0, PathImporter(sys.path, callback))
+
+def uninstall():
+    import_manager.uninstall()

@@ -45,6 +45,7 @@ class TestBytecodeTracer:
             fun()
         finally:
             sys.settrace(None)
+            self.btracer.teardown()
 
 class TestBytecodeTracerWithDifferentArgumentsCombinations(TestBytecodeTracer):
     def test_traces_builtin_functions_with_no_arguments(self):
@@ -456,6 +457,7 @@ class TestRewriteFunction:
 class TestImportSupportWithOtherModules(TestBytecodeTracer):
     def test_support_with_pickle(self):
         self.btracer.setup()
+        self.btracer.teardown()
         # This can raise any number of exceptions.
         #
         # Under Python 2.3 with imputil it will raise

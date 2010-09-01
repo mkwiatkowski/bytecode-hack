@@ -156,6 +156,9 @@ class BytecodeTracer(object):
     def setup(self):
         code_rewriting_importer.install(rewrite_lnotab)
 
+    def teardown(self):
+        code_rewriting_importer.uninstall()
+
     def trace(self, frame, event):
         """Tries to recognize the current event in terms of calls to and returns
         from C.
