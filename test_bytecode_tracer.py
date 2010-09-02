@@ -376,7 +376,7 @@ class TestPrint(TestBytecodeTracer):
         self.assert_trace(('print_to', ("foo", sys.stdout)))
 
 class TestBytecodeTracerAutomaticRewriting(TestBytecodeTracer):
-    def test_automatically_traces_bytescodes_of_other_callables_being_called(self):
+    def test_automatically_traces_bytecodes_of_other_callables_being_called(self):
         def other():
             abs(-2)
         def fun():
@@ -446,6 +446,20 @@ class TestBytecodeTracerAutomaticRewriting(TestBytecodeTracer):
         finally:
             shutil.rmtree(tmpdir)
 
+    def test_handles_methods(self):
+        class Class:
+            def method(self, x):
+                return abs(x)
+        def fun():
+            global return_value
+            return_value = c = Class()
+            c.method(-1)
+        self.trace_function(fun)
+        self.assert_trace(('c_call', (Class, [], {})),
+                          ('c_return', return_value),
+                          ('c_call', (abs, [-1], {})),
+                          ('c_return', 1))
+
 class TestRewriteFunction:
     def test_handles_functions_with_free_variables(self):
         x = 1
@@ -453,6 +467,14 @@ class TestRewriteFunction:
             return x + 1
         rewrite_function(fun)
         assert_equal(fun(), 2)
+
+    def test_handles_bound_methods(self):
+        class Class:
+            def method(self, x):
+                return x + 1
+        meth = Class().method
+        rewrite_function(meth)
+        assert_equal(meth(1), 2)
 
 class TestImportSupportWithOtherModules(TestBytecodeTracer):
     def test_support_with_pickle(self):

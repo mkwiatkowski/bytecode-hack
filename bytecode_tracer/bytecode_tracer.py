@@ -2,7 +2,7 @@ import opcode
 import os
 import re
 
-from types import CodeType
+from types import CodeType, MethodType
 
 import code_rewriting_importer
 
@@ -270,6 +270,8 @@ def rewrite_lnotab(code):
         code.co_freevars, code.co_cellvars)
 
 def rewrite_function(function):
+    if isinstance(function, MethodType):
+        function = function.im_func
     function.func_code = rewrite_lnotab(function.func_code)
 
 def rewrite_all(objects):
